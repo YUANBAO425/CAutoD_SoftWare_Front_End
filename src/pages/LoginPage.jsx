@@ -26,7 +26,7 @@ const LoginPage = () => {
     
     try {
       await login(formData);
-      navigate('/');
+      navigate('/dashboard');
     } catch (err) {
       console.error('登录失败:', err);
     } finally {
@@ -43,7 +43,7 @@ const LoginPage = () => {
           <p className="text-center text-gray-500 mb-6">输入你的邮箱和密码</p>
 
           <Button variant="outline" className="w-full mb-4">
-            <img src="/src/assets/google-logo.svg" alt="Google" className="w-5 h-5 mr-2" />
+            <img src="/src/assets/google_logo_icon_169090.svg" alt="Google" className="w-5 h-5 mr-2" />
             Google 登录
           </Button>
 
