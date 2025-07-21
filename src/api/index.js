@@ -1,57 +1,53 @@
-// API请求封装
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+import axios from "axios";
 
-/**
- * 通用请求方法
- * @param {string} url - 请求路径
- * @param {Object} options - 请求选项
- * @returns {Promise<any>}
- */
-export const request = async (url, options = {}) => {
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers
-  };
+// 创建axios实例
+const instance = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api",
+  timeout: 10000, // 请求超时时间
+});
 
-  if (localStorage.getItem('token')) {
-    headers.Authorization = `Bearer ${localStorage.getItem('token')}`;
-  }
-
-  const config = {
-    ...options,
-    headers
-  };
-
-  try {
-    const response = await fetch(`${BASE_URL}${url}`, config);
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || '请求失败');
+// 请求拦截器
+instance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
-
-    return data;
-  } catch (error) {
-    console.error('API请求错误:', error);
-    throw error;
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-};
+);
 
-// 请求方法封装
-export const get = (url, options = {}) => request(url, { ...options, method: 'GET' });
-export const post = (url, data, options = {}) => request(url, { ...options, method: 'POST', body: JSON.stringify(data) });
-export const put = (url, data, options = {}) => request(url, { ...options, method: 'PUT', body: JSON.stringify(data) });
-export const del = (url, options = {}) => request(url, { ...options, method: 'DELETE' });
+// 响应拦截器
+instance.interceptors.response.use(
+  (response) => {
+    // 对响应数据做点什么
+    return response.data;
+  },
+  (error) => {
+    // 对响应错误做点什么
+    console.error("API请求错误:", error);
+    return Promise.reject(error);
+  }
+);
+
+// 封装请求方法
+export const get = (url, params) => instance.get(url, { params });
+export const post = (url, data) => instance.post(url, data);
+export const put = (url, data) => instance.put(url, data);
+export const del = (url) => instance.delete(url);
 
 // API端点导出示例
 export const API = {
   auth: {
-    login: (data) => post('/auth/login', data),
-    register: (data) => post('/auth/register', data),
-    logout: () => post('/auth/logout'),
-    getProfile: () => get('/auth/profile')
+    login: (data) => post("/auth/login", data),
+    register: (data) => post("/auth/register", data),
+    logout: () => post("/auth/logout"),
+    getProfile: () => get("/auth/profile"),
   },
   // 其他API端点
 };
 
-export default API; 
+export default instance;
