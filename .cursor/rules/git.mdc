@@ -28,13 +28,14 @@ git 提交模板<type>(<scope>): <subject>，具体要求如下：
 - build: 打包
 3. 若 subject 中描述超过两种要点，请使用要点列表描述详情，每个要点使用-符号开头，多个换行，参考如下样例：
 ```
-feat(web): implement email verification workflow
+feat(user): 完善用户注册流程
 
-- Add email verification token generation service
-- Create verification email template with dynamic links
-- Add API endpoint for token validation
-- Update user model with verification status field
+- 增加邮箱验证码发送服务
+- 编写邮箱验证模版，支持动态链接
+- 新增校验验证码的 API 接口
+- 用户模型中新增“是否验证”字段
 ```
+4.提交内容中文
 
 ## 分支管理
 - main/master: 主分支，保持稳定可发布状态
