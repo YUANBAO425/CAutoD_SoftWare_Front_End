@@ -7,15 +7,15 @@ import { getHistoryAPI } from '../api/dashboardAPI';
 import { useOutletContext } from 'react-router-dom';
 
 const QuickActionButton = ({ icon: Icon, text }) => (
-  <Button variant="outline" className="flex-1">
+  <Button variant="outline" className="flex-1 bg-white border-gray-300 text-gray-800 rounded-lg shadow-sm hover:bg-gray-50">
     <Icon className="mr-2 h-4 w-4" /> {text}
   </Button>
 );
 
 const HistoryCard = ({ title, time }) => (
-  <Card>
+  <Card className="border-l-4 border-pink-500">
     <CardHeader>
-      <CardTitle className="text-lg">{title}</CardTitle>
+      <CardTitle className="text-lg font-semibold">{title}</CardTitle>
     </CardHeader>
     <CardContent>
       <p className="text-sm text-gray-500">{time}</p>
@@ -28,9 +28,9 @@ const CreateProjectPage = () => {
   const { history } = useOutletContext();
 
   return (
-    <div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Section 1: Welcome Message */}
-      <div className="text-center mb-12">
+      <div className="text-center mb-16">
         <h1 className="text-4xl font-bold mb-2">早上好, {user?.name || 'Alexandra'}</h1>
         <p className="text-pink-600 font-semibold mb-4">开始您的设计！</p>
         <div className="inline-flex items-center space-x-4">
