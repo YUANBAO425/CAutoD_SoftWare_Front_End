@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar.jsx';
 import { LogOut, Settings, Bell, ChevronDown, Plus, MessageSquare, Search, Settings2, Code } from 'lucide-react';
@@ -75,6 +75,8 @@ const Header = () => {
 const DashboardLayout = () => {
   const [history, setHistory] = useState([]);
   const { logout } = useUserStore();
+  const location = useLocation();
+  const isGeometricModelingPage = location.pathname === '/geometry';
 
   useEffect(() => {
     getHistoryAPI().then(res => {
@@ -89,7 +91,7 @@ const DashboardLayout = () => {
       <Sidebar history={history} />
       <div className="flex-1 flex flex-col">
         <Header onLogout={logout} />
-        <main className="flex-1 p-8 overflow-y-auto">
+        <main className={`flex-1 overflow-y-auto ${isGeometricModelingPage ? '' : 'p-8'}`}>
           <Outlet context={{ history }} />
         </main>
       </div>
