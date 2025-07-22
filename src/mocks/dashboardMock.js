@@ -1,6 +1,6 @@
 import Mock from "mockjs";
 
-Mock.mock("/dashboard/history", "get", {
+Mock.mock("http://localhost:3000/api/dashboard/history", "get", {
   code: 200,
   message: "成功",
   "data|3": [

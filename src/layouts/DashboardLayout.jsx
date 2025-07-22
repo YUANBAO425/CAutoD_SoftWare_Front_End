@@ -32,10 +32,14 @@ const Sidebar = ({ history }) => {
       </nav>
       <div className="mt-auto">
         <div className="mb-4">
-          <h3 className="text-sm text-gray-400 mb-2">历史记录</h3>
-          {history.slice(0, 3).map(item => (
-            <a key={item.id} href="#" className="block p-2 rounded-lg hover:bg-blue-800 text-sm truncate">{item.title}</a>
-          ))}
+          <h3 className="text-sm text-gray-400 mb-2 px-2">历史记录</h3>
+          {history.length > 0 ? (
+            history.slice(0, 3).map(item => (
+              <a key={item.id} href="#" className="block p-2 rounded-lg hover:bg-blue-800 text-sm truncate">{item.title}</a>
+            ))
+          ) : (
+            <p className="px-2 text-sm text-gray-400">暂无记录</p>
+          )}
           <a href="#" className="block p-2 rounded-lg hover:bg-blue-800 text-sm text-gray-400">View all</a>
         </div>
         <div className="flex items-center p-2 rounded-lg hover:bg-blue-800 cursor-pointer">
@@ -52,7 +56,7 @@ const Sidebar = ({ history }) => {
 
 const Header = () => {
   return (
-    <header className="flex items-center justify-end p-4 bg-white border-b">
+    <header className="flex items-center justify-end p-3 bg-white border-b">
       <div className="flex items-center space-x-4">
         <Button variant="ghost" size="icon">
           <Settings className="h-5 w-5" />

@@ -6,6 +6,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 // 页面
 import LoginPage from './pages/LoginPage';
 import CreateProjectPage from './pages/CreateProjectPage';
+import GeometricModelingPage from './pages/GeometricModelingPage';
 import useUserStore from './store/userStore';
 
 // Placeholder pages for other routes
@@ -23,7 +24,7 @@ function App() {
           <Route path="/" element={<DashboardLayout />}>
             <Route index element={<Navigate to="/create-project" />} />
             <Route path="create-project" element={<CreateProjectPage />} />
-            <Route path="geometry" element={<PlaceholderPage title="几何建模" />} />
+            <Route path="geometry" element={<GeometricModelingPage />} />
             <Route path="parts" element={<PlaceholderPage title="零件检索" />} />
             <Route path="design-optimization" element={<PlaceholderPage title="设计优化" />} />
             <Route path="software-interface" element={<PlaceholderPage title="软件界面" />} />

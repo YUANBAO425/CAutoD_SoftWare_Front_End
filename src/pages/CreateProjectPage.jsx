@@ -7,9 +7,17 @@ import { getHistoryAPI } from '../api/dashboardAPI';
 import { useOutletContext } from 'react-router-dom';
 
 const QuickActionButton = ({ icon: Icon, text }) => (
-  <Button variant="outline" className="flex-1 bg-white border-gray-300 text-gray-800 rounded-lg shadow-sm hover:bg-gray-50">
-    <Icon className="mr-2 h-4 w-4" /> {text}
-  </Button>
+  // <Button variant="outline" className="flex-1 bg-slate-50 border-slate-200 text-slate-700 rounded-lg hover:bg-slate-100">
+  //   <Icon className="mr-2 h-4 w-4" /> {text}
+  // </Button>
+  <Button
+  variant="outline"
+  className="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-800 font-medium rounded-xl shadow-sm hover:bg-pink-100 hover:border-pink-300 transition-colors"
+>
+  <Icon className="mr-2 h-5 w-5 text-pink-500" />
+  {text}
+</Button>
+
 );
 
 const HistoryCard = ({ title, time }) => (
@@ -40,7 +48,7 @@ const CreateProjectPage = () => {
       </div>
 
       {/* Section 2: Quick Actions */}
-      <div className="flex space-x-4 mb-12">
+      <div className="flex space-x-4 mb-8">
         <QuickActionButton icon={MessageSquare} text="几何建模" />
         <QuickActionButton icon={Search} text="零件检索" />
         <QuickActionButton icon={Settings2} text="设计优化" />
@@ -53,11 +61,18 @@ const CreateProjectPage = () => {
           <h2 className="text-2xl font-bold">历史记录</h2>
           <Button variant="link" className="text-pink-600">View all {'>'}</Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {history.map(item => (
-            <HistoryCard key={item.id} title={item.title} time={item.time} />
-          ))}
-        </div>
+        {history.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {history.map(item => (
+              <HistoryCard key={item.id} title={item.title} time={item.time} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 border-2 border-dashed rounded-lg">
+            <p className="text-gray-500">暂无历史记录</p>
+            <p className="text-sm text-gray-400 mt-2">您创建的项目将会出现在这里</p>
+          </div>
+        )}
       </div>
     </div>
   );
