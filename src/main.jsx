@@ -5,6 +5,7 @@ import './index.css'
 import './mocks/authMock.js';
 import './mocks/dashboardMock.js';
 import './mocks/geometricModelingMock.js';
+import './mocks/partRetrievalMock.js';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
