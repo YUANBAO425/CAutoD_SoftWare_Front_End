@@ -76,7 +76,7 @@ const DashboardLayout = () => {
   const [history, setHistory] = useState([]);
   const { logout } = useUserStore();
   const location = useLocation();
-  const isGeometricModelingPage = location.pathname === '/geometry';
+  const isFlushPage = location.pathname === '/geometry' || location.pathname === '/parts';
 
   useEffect(() => {
     getHistoryAPI().then(res => {
@@ -91,7 +91,7 @@ const DashboardLayout = () => {
       <Sidebar history={history} />
       <div className="flex-1 flex flex-col">
         <Header onLogout={logout} />
-        <main className={`flex-1 overflow-y-auto ${isGeometricModelingPage ? '' : 'p-8'}`}>
+        <main className={`flex-1 overflow-y-auto ${isFlushPage ? '' : 'p-8'}`}>
           <Outlet context={{ history }} />
         </main>
       </div>

@@ -99,7 +99,7 @@ const GeometricModelingPage = () => {
   // 初始视图
   if (messages.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full bg-white">
+      <div className="flex flex-col items-center justify-center h-full bg-white pb-40">
         <div className="w-full max-w-2xl text-center">
           <h1 className="text-4xl font-bold mb-8">您的设计需求是？</h1>
           <div className="relative flex items-center">

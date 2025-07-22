@@ -14,7 +14,7 @@ const UserMessage = ({ content }) => (
 );
 
 const PartCard = ({ part }) => (
-  <div className="bg-white rounded-lg shadow-md overflow-hidden w-64 flex-shrink-0">
+  <div className="bg-white rounded-lg shadow-md overflow-hidden">
     <img src={part.imageUrl} alt={part.name} className="w-full h-40 object-cover" />
     <div className="p-4 flex items-center justify-between">
       <span className="text-sm font-medium">{part.name}</span>
@@ -33,7 +33,7 @@ const AiMessage = ({ message }) => (
     </Avatar>
     <div className="flex-1">
       <p className="mb-4">{message.text}</p>
-      <div className="flex space-x-4 overflow-x-auto pb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {message.parts.map(part => (
           <PartCard key={part.id} part={part} />
         ))}
@@ -57,12 +57,32 @@ const PartRetrievalPage = () => {
 
     try {
       const response = await retrieveParts(inputValue);
-      const aiMessage = {
+      const allParts = response.data.parts;
+      
+      const aiMessagePlaceholder = {
         role: 'ai',
         text: '以下是为您找到的零件替换方案：',
-        parts: response.data.parts,
+        parts: [],
       };
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages(prev => [...prev, aiMessagePlaceholder]);
+
+      const streamParts = (index) => {
+        if (index >= allParts.length) {
+          setIsLoading(false);
+          return;
+        }
+        
+        setMessages(prev => {
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1].parts.push(allParts[index]);
+          return newMessages;
+        });
+
+        setTimeout(() => streamParts(index + 1), 500); // 控制卡片出现速度
+      };
+
+      streamParts(0);
+
     } catch (error) {
       console.error("Failed to retrieve parts:", error);
       const errorMessage = {
@@ -71,7 +91,6 @@ const PartRetrievalPage = () => {
         parts: [],
       };
       setMessages(prev => [...prev, errorMessage]);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -79,7 +98,7 @@ const PartRetrievalPage = () => {
   // 初始视图
   if (messages.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full bg-gray-50">
+      <div className="flex flex-col items-center justify-center h-full bg-white pb-40">
         <div className="w-full max-w-2xl text-center">
           <h1 className="text-4xl font-bold mb-8">您想查找什么样的零件？</h1>
           <div className="relative flex items-center">
@@ -107,14 +126,16 @@ const PartRetrievalPage = () => {
 
   // 对话视图
   return (
-    <div className="flex flex-col h-full bg-gray-50 p-8">
+    <div className="flex flex-col h-full bg-white p-8">
       <div className="flex-1 overflow-y-auto">
         {messages.map((msg, index) => (
           msg.role === 'user' 
             ? <UserMessage key={index} content={msg.content} />
             : <AiMessage key={index} message={msg} />
         ))}
-        {isLoading && <p className="text-center text-gray-500">正在检索中...</p>}
+        {isLoading && messages[messages.length - 1]?.role === 'ai' && messages[messages.length - 1]?.parts.length === 0 && (
+          <p className="text-center text-gray-500">正在检索中...</p>
+        )}
       </div>
       <div className="mt-auto">
         <div className="relative flex items-center">
