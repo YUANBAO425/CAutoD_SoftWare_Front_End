@@ -20,21 +20,23 @@ const UserMessage = ({ content }) => (
   </div>
 );
 
-const AiMessage = ({ content }) => (
+const AiMessage = ({ message }) => (
   <div className="flex items-start my-4">
     <Avatar className="mr-4">
       <AvatarFallback>O</AvatarFallback>
     </Avatar>
     <div className="bg-gray-100 rounded-lg p-4 max-w-2xl prose">
-      <ReactMarkdown>{content}</ReactMarkdown>
-      <div className="flex items-center justify-between mt-4">
-        <span className="text-sm text-gray-500">机械臂.step</span>
-        <div className="flex space-x-2">
-          <Button variant="ghost" size="icon"><Code className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon"><Download className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon"><Share2 className="h-4 w-4" /></Button>
+      <ReactMarkdown>{message.content || ''}</ReactMarkdown>
+      {message.fileName && (
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-sm text-gray-500">{message.fileName}</span>
+          <div className="flex space-x-2">
+            <Button variant="ghost" size="icon"><Code className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon"><Download className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon"><Share2 className="h-4 w-4" /></Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   </div>
 );
@@ -43,24 +45,54 @@ const AiMessage = ({ content }) => (
 const GeometricModelingPage = () => {
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isStreaming) return;
 
-    const newMessages = [...messages, { role: 'user', content: inputValue }];
-    setMessages(newMessages);
+    const userMessage = { role: 'user', content: inputValue };
+    setMessages(prev => [...prev, userMessage]);
     setInputValue('');
-    setIsLoading(true);
+    setIsStreaming(true);
 
     try {
-      const data = await submitDesignRequest(inputValue);
-      setMessages([...newMessages, { role: 'ai', content: data.data.response }]);
+      const { data } = await submitDesignRequest(inputValue);
+      const fullResponse = data.response.trim();
+      
+      const aiMessagePlaceholder = { role: 'ai', content: '', fileName: data.fileName };
+      setMessages(prev => [...prev, aiMessagePlaceholder]);
+
+      const streamResponse = (index) => {
+        if (index >= fullResponse.length) {
+          setIsStreaming(false);
+          return;
+        }
+
+        setMessages(prev => {
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1] = {
+            ...newMessages[newMessages.length - 1],
+            content: newMessages[newMessages.length - 1].content + fullResponse[index],
+          };
+          return newMessages;
+        });
+
+        setTimeout(() => streamResponse(index + 1), 50);
+      };
+
+      streamResponse(0);
+
     } catch (error) {
       console.error("Failed to fetch design request:", error);
-      setMessages([...newMessages, { role: 'ai', content: '抱歉，我暂时无法回答您的问题。' }]);
-    } finally {
-      setIsLoading(false);
+      const errorMessage = { role: 'ai', content: '抱歉，我暂时无法回答您的问题。' };
+      setMessages(prev => {
+        const lastMessage = prev[prev.length - 1];
+        if (lastMessage && lastMessage.role === 'ai' && lastMessage.content === '') {
+          return [...prev.slice(0, -1), errorMessage];
+        }
+        return [...prev, errorMessage];
+      });
+      setIsStreaming(false);
     }
   };
 
@@ -83,7 +115,7 @@ const GeometricModelingPage = () => {
               <Button variant="ghost" size="icon">
                 <Paperclip className="h-5 w-5 text-gray-500" />
               </Button>
-              <Button size="icon" className="bg-pink-500 hover:bg-pink-600 rounded-md" onClick={handleSendMessage} disabled={isLoading}>
+              <Button size="icon" className="bg-pink-500 hover:bg-pink-600 rounded-md" onClick={handleSendMessage} disabled={isStreaming}>
                 <ArrowUp className="h-5 w-5 text-white" />
               </Button>
             </div>
@@ -109,9 +141,8 @@ const GeometricModelingPage = () => {
         {messages.map((msg, index) => (
           msg.role === 'user' 
             ? <UserMessage key={index} content={msg.content} />
-            : <AiMessage key={index} content={msg.content} />
+            : <AiMessage key={index} message={msg} />
         ))}
-        {isLoading && <AiMessage content="正在思考中..." />}
       </div>
       <div className="mt-auto">
         <div className="relative flex items-center">
@@ -127,7 +158,7 @@ const GeometricModelingPage = () => {
             <Button variant="ghost" size="icon">
               <Paperclip className="h-5 w-5 text-gray-500" />
             </Button>
-            <Button size="icon" className="bg-pink-500 hover:bg-pink-600 rounded-md" onClick={handleSendMessage} disabled={isLoading}>
+            <Button size="icon" className="bg-pink-500 hover:bg-pink-600 rounded-md" onClick={handleSendMessage} disabled={isStreaming}>
               <ArrowUp className="h-5 w-5 text-white" />
             </Button>
           </div>
