@@ -15,7 +15,17 @@ const UserMessage = ({ content }) => (
 
 const PartCard = ({ part }) => (
   <div className="bg-white rounded-lg shadow-md overflow-hidden">
-    <img src={part.imageUrl} alt={part.name} className="w-full h-40 object-cover" />
+    {part.isLoading ? (
+      <div className="w-full h-40 bg-gray-200 flex items-center justify-center">
+        <div className="flex space-x-2">
+          <div className="h-3 w-3 bg-gray-500 rounded-full animate-pulse [animation-delay:-0.3s]"></div>
+          <div className="h-3 w-3 bg-gray-500 rounded-full animate-pulse [animation-delay:-0.15s]"></div>
+          <div className="h-3 w-3 bg-gray-500 rounded-full animate-pulse"></div>
+        </div>
+      </div>
+    ) : (
+      <img src={part.imageUrl} alt={part.name} className="w-full h-40 object-cover" />
+    )}
     <div className="p-4 flex items-center justify-between">
       <span className="text-sm font-medium">{part.name}</span>
       <div className="flex space-x-1">
@@ -72,13 +82,24 @@ const PartRetrievalPage = () => {
           return;
         }
         
+        const partPlaceholder = { ...allParts[index], isLoading: true };
         setMessages(prev => {
           const newMessages = [...prev];
-          newMessages[newMessages.length - 1].parts.push(allParts[index]);
+          newMessages[newMessages.length - 1].parts.push(partPlaceholder);
           return newMessages;
         });
 
-        setTimeout(() => streamParts(index + 1), 500); // 控制卡片出现速度
+        setTimeout(() => {
+          setMessages(prev => {
+            const newMessages = [...prev];
+            const lastAiMessage = newMessages[newMessages.length - 1];
+            const targetPart = lastAiMessage.parts[index];
+            targetPart.isLoading = false;
+            return newMessages;
+          });
+        }, 1500); // 模拟图片生成延迟
+
+        setTimeout(() => streamParts(index + 1), 300); // 控制卡片出现速度
       };
 
       streamParts(0);

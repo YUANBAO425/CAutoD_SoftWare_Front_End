@@ -13,24 +13,44 @@ const UserMessage = ({ content }) => (
   </div>
 );
 
+const ImagePlaceholder = () => (
+  <div className="w-full h-64 bg-gray-200 flex items-center justify-center rounded-lg">
+    <div className="flex space-x-2">
+      <div className="h-3 w-3 bg-gray-500 rounded-full animate-pulse [animation-delay:-0.3s]"></div>
+      <div className="h-3 w-3 bg-gray-500 rounded-full animate-pulse [animation-delay:-0.15s]"></div>
+      <div className="h-3 w-3 bg-gray-500 rounded-full animate-pulse"></div>
+    </div>
+  </div>
+);
+
 const OptimizationResultMessage = ({ message }) => (
   <div className="flex items-start my-4">
     <Avatar className="mr-4">
       <AvatarFallback>O</AvatarFallback>
     </Avatar>
     <div className="flex-1 bg-gray-100 rounded-lg p-4">
-      <p className="mb-4">{message.text}</p>
+      <p className="mb-4">{message.text || ''}</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         {message.simulationImages.map((src, index) => (
           <div key={index} className="relative">
-            <img src={src} alt={`Simulation ${index + 1}`} className="w-full rounded-lg shadow-md" />
-            <Button variant="ghost" size="icon" className="absolute top-2 right-10 bg-white bg-opacity-50 hover:bg-opacity-75"><Download className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon" className="absolute top-2 right-2 bg-white bg-opacity-50 hover:bg-opacity-75">...</Button>
+            {src ? (
+              <>
+                <img src={src} alt={`Simulation ${index + 1}`} className="w-full rounded-lg shadow-md" />
+                <Button variant="ghost" size="icon" className="absolute top-2 right-10 bg-white bg-opacity-50 hover:bg-opacity-75"><Download className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" className="absolute top-2 right-2 bg-white bg-opacity-50 hover:bg-opacity-75">...</Button>
+              </>
+            ) : (
+              <ImagePlaceholder />
+            )}
           </div>
         ))}
       </div>
       <h3 className="font-semibold mb-2">目标收敛曲线图如下：</h3>
-      <img src={message.convergenceCurveUrl} alt="Convergence Curve" className="w-full rounded-lg shadow-md" />
+      {message.convergenceCurveUrl ? (
+        <img src={message.convergenceCurveUrl} alt="Convergence Curve" className="w-full rounded-lg shadow-md" />
+      ) : (
+        <ImagePlaceholder />
+      )}
     </div>
   </div>
 );
@@ -50,31 +70,66 @@ const DesignOptimizationPage = () => {
 
     try {
       const response = await optimizeDesign(inputValue);
-      const { text, ...imageData } = response.data;
+      const { text, simulationImages, convergenceCurveUrl } = response.data;
       const fullResponse = text.trim();
 
-      const aiMessagePlaceholder = { role: 'ai', text: '', ...imageData };
+      const aiMessagePlaceholder = { 
+        role: 'ai', 
+        text: '', 
+        simulationImages: Array(simulationImages.length).fill(null), 
+        convergenceCurveUrl: null 
+      };
       setMessages(prev => [...prev, aiMessagePlaceholder]);
 
-      const streamResponse = (index) => {
+      // 1. Stream text
+      const streamText = (index) => {
         if (index >= fullResponse.length) {
-          setIsStreaming(false);
+          // 2. When text is done, start streaming images
+          streamImages(0);
           return;
         }
 
-        setMessages(prev => {
-          const newMessages = [...prev];
-          newMessages[newMessages.length - 1] = {
-            ...newMessages[newMessages.length - 1],
-            text: newMessages[newMessages.length - 1].text + fullResponse[index],
-          };
-          return newMessages;
-        });
+        setMessages(prev => prev.map((msg, i) =>
+          i === prev.length - 1
+            ? { ...msg, text: (msg.text || '') + fullResponse[index] }
+            : msg
+        ));
 
-        setTimeout(() => streamResponse(index + 1), 50);
+        setTimeout(() => streamText(index + 1), 50);
       };
 
-      streamResponse(0);
+      // 2. Stream images
+      const streamImages = (imgIndex) => {
+        if (imgIndex >= simulationImages.length) {
+          // 3. When simulation images are done, stream the curve
+          streamCurve();
+          return;
+        }
+
+        setTimeout(() => {
+          setMessages(prev => prev.map((msg, i) => {
+            if (i !== prev.length - 1) return msg;
+            const newSimImages = [...msg.simulationImages];
+            newSimImages[imgIndex] = simulationImages[imgIndex];
+            return { ...msg, simulationImages: newSimImages };
+          }));
+          streamImages(imgIndex + 1);
+        }, 1000); // Stagger image loading
+      };
+      
+      // 3. Stream convergence curve
+      const streamCurve = () => {
+        setTimeout(() => {
+          setMessages(prev => prev.map((msg, i) =>
+            i === prev.length - 1
+              ? { ...msg, convergenceCurveUrl: convergenceCurveUrl }
+              : msg
+          ));
+          setIsStreaming(false);
+        }, 1000);
+      };
+
+      streamText(0);
 
     } catch (error) {
       console.error("Failed to optimize design:", error);
