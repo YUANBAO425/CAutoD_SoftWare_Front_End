@@ -76,7 +76,7 @@ const DashboardLayout = () => {
   const [history, setHistory] = useState([]);
   const { logout } = useUserStore();
   const location = useLocation();
-  const isFlushPage = location.pathname === '/geometry' || location.pathname === '/parts';
+  const isFlushPage = ['/geometry', '/parts', '/design-optimization'].includes(location.pathname);
 
   useEffect(() => {
     getHistoryAPI().then(res => {

@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import GeometricModelingPage from './pages/GeometricModelingPage';
 import PartRetrievalPage from './pages/PartRetrievalPage';
+import DesignOptimizationPage from './pages/DesignOptimizationPage';
 import useUserStore from './store/userStore';
 
 // Placeholder pages for other routes
@@ -27,7 +28,7 @@ function App() {
             <Route path="create-project" element={<CreateProjectPage />} />
             <Route path="geometry" element={<GeometricModelingPage />} />
             <Route path="parts" element={<PartRetrievalPage />} />
-            <Route path="design-optimization" element={<PlaceholderPage title="设计优化" />} />
+            <Route path="design-optimization" element={<DesignOptimizationPage />} />
             <Route path="software-interface" element={<PlaceholderPage title="软件界面" />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Route>

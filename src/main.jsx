@@ -6,6 +6,7 @@ import './mocks/authMock.js';
 import './mocks/dashboardMock.js';
 import './mocks/geometricModelingMock.js';
 import './mocks/partRetrievalMock.js';
+import './mocks/designOptimizationMock.js';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
