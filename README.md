@@ -14,25 +14,83 @@
 
 ```
 front_end/
-├── public/              # 静态资源
-├── src/                 # 源代码
-│   ├── api/             # API服务和请求封装
-│   ├── assets/          # 图片、字体等资源
-│   ├── components/      # 可复用组件
-│   ├── hooks/           # 自定义React Hooks
-│   ├── layouts/         # 布局组件
-│   ├── pages/           # 页面组件
-│   ├── store/           # Zustand状态管理
-│   ├── utils/           # 工具函数
-│   ├── App.jsx          # 应用入口组件
-│   ├── main.jsx         # 主入口文件
-│   └── index.css        # 全局样式
-├── .gitignore           # Git忽略配置
-├── index.html           # HTML模板
-├── package.json         # 项目依赖配置
-├── postcss.config.js    # PostCSS配置
-├── tailwind.config.js   # Tailwind CSS配置
-└── vite.config.js       # Vite配置
+|   .gitignore
+|   components.json
+|   eslint.config.js
+|   index.html
+|   package-lock.json
+|   package.json
+|   postcss.config.js
+|   README.md
+|   tailwind.config.js
+|   vite.config.js
+|
++---public
+|       vite.svg
+|
++---rules
+\---src
+    |   App.jsx
+    |   index.css
+    |   main.jsx
+    |
+    +---api
+    |       authAPI.js
+    |       dashboardAPI.js
+    |       designOptimizationAPI.js
+    |       fileAPI.js
+    |       geometricModelingAPI.js
+    |       index.js
+    |       partRetrievalAPI.js
+    |       softwareInterfaceAPI.js
+    |
+    +---assets
+    |       google-logo.svg
+    |       google_logo_icon_169090.svg
+    |       react.svg
+    |
+    +---components
+    |   |   ChatInput.jsx
+    |   |
+    |   \---ui
+    |           avatar.jsx
+    |           button.jsx
+    |           card.jsx
+    |           checkbox.jsx
+    |           dialog.jsx
+    |           dropdown-menu.jsx
+    |           input.jsx
+    |
+    +---hooks
+    +---layouts
+    |       DashboardLayout.jsx
+    |       MainLayout.jsx
+    |
+    +---lib
+    |       utils.js
+    |
+    +---mocks
+    |       authMock.js
+    |       dashboardMock.js
+    |       designOptimizationMock.js
+    |       fileMock.js
+    |       geometricModelingMock.js
+    |       partRetrievalMock.js
+    |       softwareInterfaceMock.js
+    |
+    +---pages
+    |       CreateProjectPage.jsx
+    |       DesignOptimizationPage.jsx
+    |       GeometricModelingPage.jsx
+    |       HistoryPage.jsx
+    |       LoginPage.jsx
+    |       PartRetrievalPage.jsx
+    |       SoftwareInterfacePage.jsx
+    |
+    +---store
+    |       userStore.js
+    |
+    \---utils
 ```
 
 ## 开发指南

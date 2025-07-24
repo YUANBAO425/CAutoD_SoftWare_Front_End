@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Paperclip, ArrowUp, Download, Share2, Code } from 'lucide-react';
+import { Download, Share2, Code } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import ChatInput from '@/components/ChatInput.jsx';
 import { submitDesignRequest } from '@/api/geometricModelingAPI';
+import { uploadFileAPI } from '@/api/fileAPI.js';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const SuggestionButton = ({ text }) => (
@@ -46,17 +47,45 @@ const GeometricModelingPage = () => {
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isStreaming) return;
+    if ((!inputValue.trim() && !selectedFile) || isStreaming) return;
 
-    const userMessage = { role: 'user', content: inputValue };
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
+    let userMessageContent = inputValue;
+    let fileUrl = null;
+
     setIsStreaming(true);
 
+    // 1. 如果有文件，先上传文件
+    if (selectedFile) {
+      try {
+        const uploadResponse = await uploadFileAPI(selectedFile);
+        if (uploadResponse.code === 200) {
+          fileUrl = uploadResponse.data.url;
+          // 可以选择将文件名或URL附加到消息中
+          userMessageContent += `\n(已上传文件: ${selectedFile.name})`;
+        } else {
+          throw new Error('File upload failed');
+        }
+      } catch (error) {
+        console.error("File upload failed:", error);
+        const errorMessage = { role: 'ai', content: '抱歉，文件上传失败，请稍后再试。' };
+        setMessages(prev => [...prev, errorMessage]);
+        setIsStreaming(false);
+        return;
+      }
+    }
+
+    const userMessage = { role: 'user', content: userMessageContent };
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue('');
+    setSelectedFile(null); // 清空已选文件
+
     try {
-      const { data } = await submitDesignRequest(inputValue);
+      // 2. 发送包含文件信息的消息
+      const { data } = await submitDesignRequest(inputValue, fileUrl);
+      console.log(fileUrl);
       const fullResponse = data.response.trim();
       
       const aiMessagePlaceholder = { role: 'ai', content: '', fileName: data.fileName };
@@ -102,24 +131,16 @@ const GeometricModelingPage = () => {
       <div className="flex flex-col items-center justify-center h-full bg-white pb-40">
         <div className="w-full max-w-2xl text-center">
           <h1 className="text-4xl font-bold mb-8">您的设计需求是？</h1>
-          <div className="relative flex items-center">
-            <Input
-              type="text"
-              placeholder="设计一个机械臂？"
-              className="w-full p-6 rounded-full border-gray-300"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-            />
-            <div className="absolute right-4 flex items-center space-x-2">
-              <Button variant="ghost" size="icon">
-                <Paperclip className="h-5 w-5 text-gray-500" />
-              </Button>
-              <Button size="icon" className="bg-pink-500 hover:bg-pink-600 rounded-md" onClick={handleSendMessage} disabled={isStreaming}>
-                <ArrowUp className="h-5 w-5 text-white" />
-              </Button>
-            </div>
-          </div>
+          <ChatInput
+            inputValue={inputValue}
+            onInputChange={(e) => setInputValue(e.target.value)}
+            onSendMessage={handleSendMessage}
+            isStreaming={isStreaming}
+            placeholder="设计一个机械臂？"
+            selectedFile={selectedFile}
+            onFileSelect={setSelectedFile}
+            isInitialView={true}
+          />
           <div className="flex justify-center space-x-2 mt-4">
             <SuggestionButton text="3D" />
             <SuggestionButton text="建模" />
@@ -145,24 +166,15 @@ const GeometricModelingPage = () => {
         ))}
       </div>
       <div className="mt-auto">
-        <div className="relative flex items-center">
-          <Input
-            type="text"
-            placeholder="设计优化"
-            className="w-full p-6 rounded-lg border-gray-300"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-          />
-          <div className="absolute right-4 flex items-center space-x-2">
-            <Button variant="ghost" size="icon">
-              <Paperclip className="h-5 w-5 text-gray-500" />
-            </Button>
-            <Button size="icon" className="bg-pink-500 hover:bg-pink-600 rounded-md" onClick={handleSendMessage} disabled={isStreaming}>
-              <ArrowUp className="h-5 w-5 text-white" />
-            </Button>
-          </div>
-        </div>
+        <ChatInput
+          inputValue={inputValue}
+          onInputChange={(e) => setInputValue(e.target.value)}
+          onSendMessage={handleSendMessage}
+          isStreaming={isStreaming}
+          placeholder="设计优化"
+          selectedFile={selectedFile}
+          onFileSelect={setSelectedFile}
+        />
       </div>
     </div>
   );

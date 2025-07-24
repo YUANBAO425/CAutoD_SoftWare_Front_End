@@ -8,6 +8,7 @@ import './mocks/geometricModelingMock.js';
 import './mocks/partRetrievalMock.js';
 import './mocks/designOptimizationMock.js';
 import './mocks/softwareInterfaceMock.js';
+import './mocks/fileMock.js';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Download, Paperclip, ArrowUp } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { optimizeDesign } from '@/api/designOptimizationAPI';
+import { uploadFileAPI } from '@/api/fileAPI.js';
+import ChatInput from '@/components/ChatInput.jsx';
 
 const UserMessage = ({ content }) => (
   <div className="flex justify-end my-4">
@@ -59,17 +60,41 @@ const DesignOptimizationPage = () => {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isStreaming) return;
+    if ((!inputValue.trim() && !selectedFile) || isStreaming) return;
 
-    const userMessage = { role: 'user', content: inputValue };
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
+    let userMessageContent = inputValue;
+    let fileUrl = null;
+
     setIsStreaming(true);
 
+    if (selectedFile) {
+      try {
+        const uploadResponse = await uploadFileAPI(selectedFile);
+        if (uploadResponse.code === 200) {
+          fileUrl = uploadResponse.data.url;
+          userMessageContent += `\n(已上传文件: ${selectedFile.name})`;
+        } else {
+          throw new Error('File upload failed');
+        }
+      } catch (error) {
+        console.error("File upload failed:", error);
+        const errorMessage = { role: 'ai', text: '抱歉，文件上传失败，请稍后再试。', simulationImages: [], convergenceCurveUrl: '' };
+        setMessages(prev => [...prev, errorMessage]);
+        setIsStreaming(false);
+        return;
+      }
+    }
+
+    const userMessage = { role: 'user', content: userMessageContent };
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue('');
+    setSelectedFile(null);
+
     try {
-      const response = await optimizeDesign(inputValue);
+      const response = await optimizeDesign(inputValue, fileUrl);
       const { text, simulationImages, convergenceCurveUrl } = response.data;
       const fullResponse = text.trim();
 
@@ -145,24 +170,16 @@ const DesignOptimizationPage = () => {
       <div className="flex flex-col items-center justify-center h-full bg-white pb-40">
         <div className="w-full max-w-2xl text-center">
           <h1 className="text-4xl font-bold mb-8">需要我为您优化什么？</h1>
-          <div className="relative flex items-center">
-            <Input
-              type="text"
-              placeholder="例如：轻量化这个机械臂，要求满足材料应力约束"
-              className="w-full p-6 rounded-full border-gray-300"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-            />
-            <div className="absolute right-4 flex items-center space-x-2">
-              <Button variant="ghost" size="icon">
-                <Paperclip className="h-5 w-5 text-gray-500" />
-              </Button>
-              <Button size="icon" className="bg-pink-500 hover:bg-pink-600 rounded-md" onClick={handleSendMessage} disabled={isStreaming}>
-                <ArrowUp className="h-5 w-5 text-white" />
-              </Button>
-            </div>
-          </div>
+          <ChatInput
+            inputValue={inputValue}
+            onInputChange={(e) => setInputValue(e.target.value)}
+            onSendMessage={handleSendMessage}
+            isStreaming={isStreaming}
+            placeholder="例如：轻量化这个机械臂，要求满足材料应力约束"
+            selectedFile={selectedFile}
+            onFileSelect={setSelectedFile}
+            isInitialView={true}
+          />
         </div>
       </div>
     );
@@ -179,24 +196,15 @@ const DesignOptimizationPage = () => {
         ))}
       </div>
       <div className="mt-auto">
-        <div className="relative flex items-center">
-          <Input
-            type="text"
-            placeholder="模型保存"
-            className="w-full p-6 rounded-lg border-gray-300"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-          />
-          <div className="absolute right-4 flex items-center space-x-2">
-            <Button variant="ghost" size="icon">
-              <Paperclip className="h-5 w-5 text-gray-500" />
-            </Button>
-            <Button size="icon" className="bg-pink-500 hover:bg-pink-600 rounded-md" onClick={handleSendMessage} disabled={isStreaming}>
-              <ArrowUp className="h-5 w-5 text-white" />
-            </Button>
-          </div>
-        </div>
+        <ChatInput
+          inputValue={inputValue}
+          onInputChange={(e) => setInputValue(e.target.value)}
+          onSendMessage={handleSendMessage}
+          isStreaming={isStreaming}
+          placeholder="模型保存"
+          selectedFile={selectedFile}
+          onFileSelect={setSelectedFile}
+        />
       </div>
     </div>
   );
