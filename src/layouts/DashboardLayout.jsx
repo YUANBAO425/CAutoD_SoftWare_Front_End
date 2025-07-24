@@ -34,13 +34,18 @@ const Sidebar = ({ history }) => {
         <div className="mb-4">
           <h3 className="text-sm text-gray-400 mb-2 px-2">历史记录</h3>
           {history.length > 0 ? (
-            history.slice(0, 3).map(item => (
-              <a key={item.id} href="#" className="block p-2 rounded-lg hover:bg-blue-800 text-sm truncate">{item.title}</a>
-            ))
+            <>
+              {history.slice(0, 3).map(item => (
+                <a key={item.id} href="#" className="block p-2 rounded-lg hover:bg-blue-800 text-sm truncate">{item.title}</a>
+              ))}
+              {history.length > 3 && (
+                <div className="px-2 text-gray-400">...</div>
+              )}
+            </>
           ) : (
             <p className="px-2 text-sm text-gray-400">暂无记录</p>
           )}
-          <a href="#" className="block p-2 rounded-lg hover:bg-blue-800 text-sm text-gray-400">View all</a>
+          <NavLink to="/history" className="block p-2 rounded-lg hover:bg-blue-800 text-sm text-gray-400">View all</NavLink>
         </div>
         <div className="flex items-center p-2 rounded-lg hover:bg-blue-800 cursor-pointer">
           <Avatar className="h-8 w-8 mr-3">

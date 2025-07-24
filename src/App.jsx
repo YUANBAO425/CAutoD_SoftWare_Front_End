@@ -10,6 +10,7 @@ import GeometricModelingPage from './pages/GeometricModelingPage';
 import PartRetrievalPage from './pages/PartRetrievalPage';
 import DesignOptimizationPage from './pages/DesignOptimizationPage';
 import SoftwareInterfacePage from './pages/SoftwareInterfacePage';
+import HistoryPage from './pages/HistoryPage';
 import useUserStore from './store/userStore';
 
 // Placeholder pages for other routes
@@ -31,6 +32,7 @@ function App() {
             <Route path="parts" element={<PartRetrievalPage />} />
             <Route path="design-optimization" element={<DesignOptimizationPage />} />
             <Route path="software-interface" element={<SoftwareInterfacePage />} />
+            <Route path="history" element={<HistoryPage />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Route>
         ) : (

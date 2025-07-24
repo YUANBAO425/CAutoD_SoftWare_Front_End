@@ -1,23 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
-import { MessageSquare, Search, Settings2, Code } from 'lucide-react';
+import { MessageSquare, Search, Settings2, Code, MoreHorizontal } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import { getHistoryAPI } from '../api/dashboardAPI';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 
-const QuickActionButton = ({ icon: Icon, text }) => (
-  // <Button variant="outline" className="flex-1 bg-slate-50 border-slate-200 text-slate-700 rounded-lg hover:bg-slate-100">
-  //   <Icon className="mr-2 h-4 w-4" /> {text}
-  // </Button>
+const QuickActionButton = ({ icon: Icon, text, onClick }) => (
   <Button
-  variant="outline"
-  className="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-800 font-medium rounded-xl shadow-sm hover:bg-pink-100 hover:border-pink-300 transition-colors"
->
-  <Icon className="mr-2 h-5 w-5 text-pink-500" />
-  {text}
-</Button>
-
+    onClick={onClick}
+    variant="outline"
+    className="flex-1 px-6 py-4 bg-white border border-gray-300 text-gray-800 font-medium rounded-xl shadow-sm hover:bg-pink-100 hover:border-pink-300 transition-colors text-lg"
+  >
+    <Icon className="mr-3 h-6 w-6 text-pink-500" />
+    {text}
+  </Button>
 );
 
 const HistoryCard = ({ title, time }) => (
@@ -34,6 +31,7 @@ const HistoryCard = ({ title, time }) => (
 const CreateProjectPage = () => {
   const { user } = useUserStore();
   const { history } = useOutletContext();
+  const navigate = useNavigate();
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -49,21 +47,21 @@ const CreateProjectPage = () => {
 
       {/* Section 2: Quick Actions */}
       <div className="flex space-x-4 mb-8">
-        <QuickActionButton icon={MessageSquare} text="几何建模" />
-        <QuickActionButton icon={Search} text="零件检索" />
-        <QuickActionButton icon={Settings2} text="设计优化" />
-        <QuickActionButton icon={Code} text="软件界面" />
+        <QuickActionButton icon={MessageSquare} text="几何建模" onClick={() => navigate('/geometry')} />
+        <QuickActionButton icon={Search} text="零件检索" onClick={() => navigate('/parts')} />
+        <QuickActionButton icon={Settings2} text="设计优化" onClick={() => navigate('/design-optimization')} />
+        <QuickActionButton icon={Code} text="软件界面" onClick={() => navigate('/software-interface')} />
       </div>
 
       {/* Section 4: History */}
-      <div>
+      <div className="mt-20">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold">历史记录</h2>
-          <Button variant="link" className="text-pink-600">View all {'>'}</Button>
+          <Button variant="link" className="text-pink-600" onClick={() => navigate('/history')}>View all {'>'}</Button>
         </div>
         {history.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {history.map(item => (
+            {history.slice(0, 3).map(item => (
               <HistoryCard key={item.id} title={item.title} time={item.time} />
             ))}
           </div>
