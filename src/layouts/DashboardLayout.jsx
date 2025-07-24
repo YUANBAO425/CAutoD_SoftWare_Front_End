@@ -54,7 +54,7 @@ const Sidebar = ({ history }) => {
   );
 };
 
-const Header = () => {
+const Header = ({ onLogout }) => {
   return (
     <header className="flex items-center justify-end p-3 bg-white border-b">
       <div className="flex items-center space-x-4">
@@ -64,7 +64,7 @@ const Header = () => {
         <Button variant="ghost" size="icon">
           <Bell className="h-5 w-5" />
         </Button>
-        <Button variant="outline">
+        <Button variant="outline" onClick={onLogout}>
           <LogOut className="mr-2 h-4 w-4" /> 登出
         </Button>
       </div>
