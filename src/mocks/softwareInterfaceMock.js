@@ -31,6 +31,33 @@ const historyData = [
       },
     ],
   },
+  {
+    id: "session-3",
+    title: "齿轮箱啮合分析 (2023-07-20)",
+    results: [
+      {
+        id: "res-3a",
+        name: "齿轮接触应力",
+        gifUrl: "https://media.giphy.com/media/3o7TKSha51ATTx9KzC/giphy.gif",
+      },
+      {
+        id: "res-3b",
+        name: "振动模态",
+        gifUrl: "https://media.giphy.com/media/l0HlW9GDwdAie2tIQ/giphy.gif",
+      },
+    ],
+  },
+  {
+    id: "session-4",
+    title: "汽车悬挂系统动态模拟 (2023-07-19)",
+    results: [
+      {
+        id: "res-4a",
+        name: "悬挂行程动画",
+        gifUrl: "https://media.giphy.com/media/3o7aD4GrHwn8vsGBTa/giphy.gif",
+      },
+    ],
+  },
 ];
 
 Mock.mock("http://localhost:3000/api/software-interface/history", "get", () => {
