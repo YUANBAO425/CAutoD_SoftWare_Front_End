@@ -3,14 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import useUserStore from '../store/userStore';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 
-const LoginPage = () => {
+const RegisterPage = () => {
   const navigate = useNavigate();
-  const { login, error, clearError } = useUserStore();
+  const { register, error, clearError } = useUserStore();
   const [formData, setFormData] = useState({
+    userId: '',
     email: '',
-    password: ''
+    password: '',
+    confirmPassword: ''
   });
   const [loading, setLoading] = useState(false);
 
@@ -22,17 +23,28 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (formData.password !== formData.confirmPassword) {
+      alert("密码不匹配！");
+      return;
+    }
+    if (!formData.userId.trim()) {
+      alert("用户ID不能为空！");
+      return;
+    }
     setLoading(true);
     
     try {
       const data = new FormData();
+      data.append('user_id', formData.userId);
       data.append('email', formData.email);
-      data.append('password', formData.password);
-      
-      await login(data);
-      navigate('/dashboard');
+      data.append('pwd', formData.password);
+
+      await register(data);
+      alert("注册成功！即将跳转到登录页面。");
+      navigate('/login');
     } catch (err) {
-      console.error('登录失败:', err);
+      console.error('注册失败:', err);
+      alert(`注册失败: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -43,21 +55,24 @@ const LoginPage = () => {
       <div className="flex w-full max-w-4xl shadow-lg rounded-lg overflow-hidden">
         {/* Left side: Form */}
         <div className="w-1/2 bg-white p-8">
-          <h2 className="text-2xl font-bold mb-2 text-center">登录</h2>
-          <p className="text-center text-gray-500 mb-6">输入你的邮箱和密码</p>
-
-          <Button variant="outline" className="w-full mb-4">
-            <img src="/src/assets/google_logo_icon_169090.svg" alt="Google" className="w-5 h-5 mr-2" />
-            Google 登录
-          </Button>
-
-          <div className="flex items-center my-4">
-            <hr className="w-full" />
-            <span className="px-2 text-gray-400">or</span>
-            <hr className="w-full" />
-          </div>
+          <h2 className="text-2xl font-bold mb-2 text-center">注册</h2>
+          <p className="text-center text-gray-500 mb-6">创建你的新账户</p>
 
           <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label className="block text-gray-700 mb-2" htmlFor="userId">
+                用户 ID <span className="text-red-500">*</span>
+              </label>
+              <Input
+                id="userId"
+                name="userId"
+                type="number"
+                placeholder="Enter your user ID"
+                value={formData.userId}
+                onChange={handleChange}
+                required
+              />
+            </div>
             <div className="mb-4">
               <label className="block text-gray-700 mb-2" htmlFor="email">
                 邮箱 <span className="text-red-500">*</span>
@@ -88,28 +103,31 @@ const LoginPage = () => {
               />
             </div>
 
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center">
-                <Checkbox id="remember-me" />
-                <label htmlFor="remember-me" className="ml-2 text-sm text-gray-600">
-                  保持登录
-                </label>
-              </div>
-              <Link to="/forgot-password" className="text-sm text-blue-600 hover:underline">
-                忘记密码？
-              </Link>
+            <div className="mb-6">
+              <label className="block text-gray-700 mb-2" htmlFor="confirmPassword">
+                确认密码 <span className="text-red-500">*</span>
+              </label>
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                placeholder="Confirm your password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required
+              />
             </div>
             
             <Button type="submit" disabled={loading} className="w-full bg-pink-600 text-white hover:bg-pink-700">
-              {loading ? '登录中...' : '登录'}
+              {loading ? '注册中...' : '注册'}
             </Button>
           </form>
           
           <div className="mt-6 text-center">
             <p className="text-gray-600">
-              还未注册？ 
-              <Link to="/register" className="text-blue-600 hover:underline ml-1">
-                注册一个账号
+              已经有账户了？ 
+              <Link to="/login" className="text-blue-600 hover:underline ml-1">
+                登录
               </Link>
             </p>
           </div>
@@ -119,7 +137,6 @@ const LoginPage = () => {
         <div className="w-1/2 bg-blue-800 p-8 flex flex-col items-center justify-center text-white">
           <h1 className="text-5xl font-bold mb-4">CAutoD</h1>
           <p className="mb-6">AI-powered CAD Platform</p>
-          {/* Dark/Light mode toggle */}
           <div className="flex items-center bg-blue-700 rounded-full p-1">
             <Button size="sm" className="bg-white text-blue-800 rounded-full">白天模式</Button>
             <Button size="sm" variant="ghost" className="rounded-full">夜间模式</Button>
@@ -130,4 +147,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+export default RegisterPage;

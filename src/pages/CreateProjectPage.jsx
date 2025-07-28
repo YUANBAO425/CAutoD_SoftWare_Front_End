@@ -37,7 +37,7 @@ const CreateProjectPage = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Section 1: Welcome Message */}
       <div className="text-center mb-16">
-        <h1 className="text-4xl font-bold mb-2">早上好, {user?.name || 'Alexandra'}</h1>
+        <h1 className="text-4xl font-bold mb-2">你好, {user?.email?.split('@')[0] || '用户'}</h1>
         <p className="text-pink-600 font-semibold mb-4">开始您的设计！</p>
         <div className="inline-flex items-center space-x-4">
           <span className="text-gray-500">Free plan</span>

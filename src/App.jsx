@@ -5,6 +5,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 
 // 页面
 import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import GeometricModelingPage from './pages/GeometricModelingPage';
 import PartRetrievalPage from './pages/PartRetrievalPage';
@@ -23,6 +24,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
         
         {token ? (
           <Route path="/" element={<DashboardLayout />}>

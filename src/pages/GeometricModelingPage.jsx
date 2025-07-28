@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Download, Share2, Code } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import ChatInput from '@/components/ChatInput.jsx';
-import { submitDesignRequest } from '@/api/geometricModelingAPI';
-import { uploadFileAPI } from '@/api/fileAPI.js';
+import { streamGeometryModeling } from '@/api/geometricModelingAPI';
+import { uploadFileAPI } from '@/api/fileAPI.js'; // 假设这个API也需要更新
+import useUserStore from '@/store/userStore';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const SuggestionButton = ({ text }) => (
@@ -48,81 +49,70 @@ const GeometricModelingPage = () => {
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const { user } = useUserStore();
 
   const handleSendMessage = async () => {
     if ((!inputValue.trim() && !selectedFile) || isStreaming) return;
 
     let userMessageContent = inputValue;
-    let fileUrl = null;
-
-    setIsStreaming(true);
-
-    // 1. 如果有文件，先上传文件
-    if (selectedFile) {
-      try {
-        const uploadResponse = await uploadFileAPI(selectedFile);
-        if (uploadResponse.code === 200) {
-          fileUrl = uploadResponse.data.url;
-          // 可以选择将文件名或URL附加到消息中
-          userMessageContent += `\n(已上传文件: ${selectedFile.name})`;
-        } else {
-          throw new Error('File upload failed');
-        }
-      } catch (error) {
-        console.error("File upload failed:", error);
-        const errorMessage = { role: 'ai', content: '抱歉，文件上传失败，请稍后再试。' };
-        setMessages(prev => [...prev, errorMessage]);
-        setIsStreaming(false);
-        return;
-      }
-    }
+    let filesForRequest = [];
 
     const userMessage = { role: 'user', content: userMessageContent };
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
-    setSelectedFile(null); // 清空已选文件
+    
+    setIsStreaming(true);
+    const aiMessagePlaceholder = { role: 'ai', content: '', metadata: null };
+    setMessages(prev => [...prev, aiMessagePlaceholder]);
 
-    try {
-      // 2. 发送包含文件信息的消息
-      const { data } = await submitDesignRequest(inputValue, fileUrl);
-      console.log(fileUrl);
-      const fullResponse = data.response.trim();
-      
-      const aiMessagePlaceholder = { role: 'ai', content: '', fileName: data.fileName };
-      setMessages(prev => [...prev, aiMessagePlaceholder]);
+    // 文件上传逻辑 (如果需要)
+    if (selectedFile) {
+      // 假设 uploadFileAPI 返回一个包含 url 的对象
+      // const uploadedFile = await uploadFileAPI(selectedFile);
+      // filesForRequest.push({
+      //   type: 'image', // or other type
+      //   transfer_method: 'remote_url',
+      //   url: uploadedFile.url,
+      // });
+      setSelectedFile(null);
+    }
 
-      const streamResponse = (index) => {
-        if (index >= fullResponse.length) {
-          setIsStreaming(false);
-          return;
-        }
+    const requestData = {
+      query: inputValue,
+      response_mode: "streaming",
+      user: user?.email || "anonymous", // 使用用户的 email 或一个匿名标识
+      // conversation_id: "some-conversation-id", // 如果需要，管理会话ID
+      files: filesForRequest,
+    };
 
+    streamGeometryModeling({
+      requestData,
+      onOpen: () => {
+        console.log("SSE connection opened.");
+      },
+      onMessage: (data) => {
         setMessages(prev => {
           const newMessages = [...prev];
-          newMessages[newMessages.length - 1] = {
-            ...newMessages[newMessages.length - 1],
-            content: newMessages[newMessages.length - 1].content + fullResponse[index],
-          };
+          const lastMessage = newMessages[newMessages.length - 1];
+          lastMessage.content = data.answer;
+          lastMessage.metadata = data.metadata;
           return newMessages;
         });
-
-        setTimeout(() => streamResponse(index + 1), 50);
-      };
-
-      streamResponse(0);
-
-    } catch (error) {
-      console.error("Failed to fetch design request:", error);
-      const errorMessage = { role: 'ai', content: '抱歉，我暂时无法回答您的问题。' };
-      setMessages(prev => {
-        const lastMessage = prev[prev.length - 1];
-        if (lastMessage && lastMessage.role === 'ai' && lastMessage.content === '') {
-          return [...prev.slice(0, -1), errorMessage];
-        }
-        return [...prev, errorMessage];
-      });
-      setIsStreaming(false);
-    }
+      },
+      onError: (error) => {
+        console.error("SSE error:", error);
+        setMessages(prev => {
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1].content = "抱歉，请求出错，请稍后再试。";
+          return newMessages;
+        });
+        setIsStreaming(false);
+      },
+      onClose: () => {
+        console.log("SSE connection closed.");
+        setIsStreaming(false);
+      },
+    });
   };
 
   // 初始视图

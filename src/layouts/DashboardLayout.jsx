@@ -2,7 +2,15 @@ import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar.jsx';
-import { LogOut, Settings, Bell, ChevronDown, Plus, MessageSquare, Search, Settings2, Code } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { LogOut, Settings, Bell, ChevronDown, Plus, MessageSquare, Search, Settings2, Code, User } from 'lucide-react';
 import { getHistoryAPI } from '../api/dashboardAPI';
 import useUserStore from '../store/userStore';
 
@@ -20,6 +28,14 @@ const NavItem = ({ to, icon: Icon, text }) => (
 );
 
 const Sidebar = ({ history }) => {
+  const { user, logout } = useUserStore();
+
+  // 格式化日期
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleString();
+  };
+
   return (
     <div className="w-64 bg-blue-900 text-white flex flex-col p-4">
       <div className="text-2xl font-bold mb-10">CAutoD</div>
@@ -47,13 +63,39 @@ const Sidebar = ({ history }) => {
           )}
           <NavLink to="/history" className="block p-2 rounded-lg hover:bg-blue-800 text-sm text-gray-400">View all</NavLink>
         </div>
-        <div className="flex items-center p-2 rounded-lg hover:bg-blue-800 cursor-pointer">
-          <Avatar className="h-8 w-8 mr-3">
-            <AvatarFallback>A</AvatarFallback>
-          </Avatar>
-          <span className="flex-1">Alexandra</span>
-          <ChevronDown className="h-5 w-5" />
-        </div>
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <div className="flex items-center p-2 rounded-lg hover:bg-blue-800 cursor-pointer">
+              <Avatar className="h-8 w-8 mr-3">
+                <AvatarFallback>{user?.email?.[0].toUpperCase() || 'U'}</AvatarFallback>
+              </Avatar>
+              <span className="flex-1 truncate">{user?.email || '用户'}</span>
+              <ChevronDown className="h-5 w-5" />
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">用户信息</p>
+                <p className="text-xs leading-none text-muted-foreground">
+                  ID: {user?.user_id || 'N/A'}
+                </p>
+                <p className="text-xs leading-none text-muted-foreground truncate">
+                  邮箱: {user?.email || 'N/A'}
+                </p>
+                <p className="text-xs leading-none text-muted-foreground">
+                  注册于: {formatDate(user?.created_at)}
+                </p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={logout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>登出</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
@@ -84,6 +126,7 @@ const DashboardLayout = () => {
   const isFlushPage = ['/geometry', '/parts', '/design-optimization', '/software-interface'].includes(location.pathname);
 
   useEffect(() => {
+    // 获取历史记录
     getHistoryAPI().then(res => {
       if (res.code === 200) {
         setHistory(res.data);
