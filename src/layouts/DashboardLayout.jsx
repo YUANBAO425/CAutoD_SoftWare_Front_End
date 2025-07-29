@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LogOut, Settings, Bell, ChevronDown, Plus, MessageSquare, Search, Settings2, Code, User } from 'lucide-react';
-import { getHistoryAPI } from '../api/dashboardAPI';
+import { getConversationsAPI } from '../api/dashboardAPI';
 import useUserStore from '../store/userStore';
 
 const NavItem = ({ to, icon: Icon, text }) => (
@@ -121,18 +121,23 @@ const Header = ({ onLogout }) => {
 
 const DashboardLayout = () => {
   const [history, setHistory] = useState([]);
-  const { logout } = useUserStore();
+  const { user, logout } = useUserStore();
   const location = useLocation();
   const isFlushPage = ['/geometry', '/parts', '/design-optimization', '/software-interface'].includes(location.pathname);
 
+  const fetchHistory = () => {
+    if (user && user.user_id) {
+      getConversationsAPI(user.user_id).then(conversations => {
+        setHistory(conversations);
+      }).catch(error => {
+        console.error("Failed to fetch conversations in layout:", error);
+      });
+    }
+  };
+
   useEffect(() => {
-    // 获取历史记录
-    getHistoryAPI().then(res => {
-      if (res.code === 200) {
-        setHistory(res.data);
-      }
-    });
-  }, []);
+    fetchHistory();
+  }, [user]);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -140,7 +145,7 @@ const DashboardLayout = () => {
       <div className="flex-1 flex flex-col">
         <Header onLogout={logout} />
         <main className={`flex-1 overflow-y-auto ${isFlushPage ? '' : 'p-8'}`}>
-          <Outlet context={{ history }} />
+          <Outlet context={{ history, fetchHistory }} />
         </main>
       </div>
     </div>

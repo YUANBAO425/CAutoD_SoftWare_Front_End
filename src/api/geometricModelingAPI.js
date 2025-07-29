@@ -3,14 +3,7 @@ import useUserStore from "../store/userStore";
 /**
  * 几何建模 (SSE)
  * 功能描述：向后端提交用户的设计需求，并以流式方式接收响应
- * 入参：
- *   - requestData (object): 符合后端 GeometryRequest 模型的数据
- *   - onMessage (function): 处理接收到的消息的回调函数
- *   - onError (function): 处理错误的回调函数
- *   - onOpen (function): 连接打开时的回调函数
- *   - onClose (function): 连接关闭时的回调函数
- * url地址：/geometry/
- * 请求方式：POST (with streaming response)
+ * ... (其他注释保持不变)
  */
 export const streamGeometryModeling = async ({
   requestData,
@@ -44,26 +37,52 @@ export const streamGeometryModeling = async ({
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder("utf-8");
+    let buffer = "";
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        if (onClose) onClose();
-        break;
-      }
-      const chunk = decoder.decode(value);
-      // 简单的实现，假设每个 chunk 包含一个完整的 SSE 消息
-      // 在实际应用中，你可能需要一个更健壮的解析器来处理分块的消息
-      if (chunk.startsWith("event: message_end")) {
-        const dataStr = chunk.substring(chunk.indexOf("data: ") + 6);
-        try {
-          const data = JSON.parse(dataStr);
-          if (onMessage) onMessage(data);
-        } catch (e) {
-          if (onError) onError(e);
+    const processStream = async () => {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          if (onClose) onClose();
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const messages = buffer.split("\n\n");
+
+        // 保留最后一个可能不完整的消息在缓冲区中
+        buffer = messages.pop();
+
+        for (const message of messages) {
+          if (message.trim() === "") continue;
+
+          const lines = message.split("\n");
+          let eventType = "message";
+          let dataStr = "";
+
+          for (const line of lines) {
+            if (line.startsWith("event:")) {
+              eventType = line.substring(6).trim();
+            } else if (line.startsWith("data:")) {
+              dataStr = line.substring(5).trim();
+            }
+          }
+
+          if (dataStr) {
+            try {
+              const data = JSON.parse(dataStr);
+              // 将解析后的数据连同事件类型一起传递给回调
+              if (onMessage) onMessage({ event: eventType, data: data });
+            } catch (e) {
+              if (onError)
+                onError(new Error(`JSON parsing error: ${e.message}`));
+            }
+          }
         }
       }
-    }
+    };
+
+    processStream().catch(onError);
   } catch (error) {
     if (onError) onError(error);
   }

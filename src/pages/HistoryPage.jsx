@@ -2,15 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Trash2, Search } from 'lucide-react';
-import { getHistoryAPI } from '../api/dashboardAPI';
+import { getConversationsAPI } from '../api/dashboardAPI';
+import useUserStore from '../store/userStore';
 
 const HistoryItem = ({ item, onDelete }) => (
   <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
     <div>
       <p className="font-semibold">{item.title}</p>
-      <p className="text-sm text-gray-500">{item.relativeTime}</p>
+      <p className="text-sm text-gray-500">{new Date(item.created_at).toLocaleString()}</p>
     </div>
-    <Button variant="ghost" size="icon" onClick={() => onDelete(item.id)}>
+    <Button variant="ghost" size="icon" onClick={() => onDelete(item.conversation_id)}>
       <Trash2 className="h-5 w-5 text-gray-400 hover:text-red-500" />
     </Button>
   </div>
@@ -20,13 +21,18 @@ const HistoryPage = () => {
   const [history, setHistory] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useUserStore();
 
   useEffect(() => {
     const fetchHistory = async () => {
+      if (!user || !user.user_id) {
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       try {
-        const response = await getHistoryAPI();
-        setHistory(response.data);
+        const conversations = await getConversationsAPI(user.user_id);
+        setHistory(conversations);
       } catch (error) {
         console.error("Failed to fetch history:", error);
       } finally {
@@ -34,10 +40,10 @@ const HistoryPage = () => {
       }
     };
     fetchHistory();
-  }, []);
+  }, [user]);
 
-  const handleDelete = (id) => {
-    setHistory(history.filter(item => item.id !== id));
+  const handleDelete = (conversation_id) => {
+    setHistory(history.filter(item => item.conversation_id !== conversation_id));
   };
 
   const filteredHistory = history.filter(item =>
@@ -74,7 +80,7 @@ const HistoryPage = () => {
 
       <div className="space-y-4">
         {filteredHistory.map(item => (
-          <HistoryItem key={item.id} item={item} onDelete={handleDelete} />
+          <HistoryItem key={item.conversation_id} item={item} onDelete={handleDelete} />
         ))}
       </div>
     </div>

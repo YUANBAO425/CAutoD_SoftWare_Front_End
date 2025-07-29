@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { MessageSquare, Search, Settings2, Code, MoreHorizontal } from 'lucide-react';
 import useUserStore from '../store/userStore';
-import { getHistoryAPI } from '../api/dashboardAPI';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 
 const QuickActionButton = ({ icon: Icon, text, onClick }) => (

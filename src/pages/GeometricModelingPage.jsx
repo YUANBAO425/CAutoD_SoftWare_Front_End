@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Download, Share2, Code } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -22,26 +23,46 @@ const UserMessage = ({ content }) => (
   </div>
 );
 
-const AiMessage = ({ message }) => (
-  <div className="flex items-start my-4">
-    <Avatar className="mr-4">
-      <AvatarFallback>O</AvatarFallback>
-    </Avatar>
-    <div className="bg-gray-100 rounded-lg p-4 max-w-2xl prose">
-      <ReactMarkdown>{message.content || ''}</ReactMarkdown>
-      {message.fileName && (
-        <div className="flex items-center justify-between mt-4">
-          <span className="text-sm text-gray-500">{message.fileName}</span>
-          <div className="flex space-x-2">
-            <Button variant="ghost" size="icon"><Code className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon"><Download className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon"><Share2 className="h-4 w-4" /></Button>
+const AiMessage = ({ message }) => {
+  const { content, metadata } = message;
+
+  return (
+    <div className="flex items-start my-4">
+      <Avatar className="mr-4">
+        <AvatarFallback>O</AvatarFallback>
+      </Avatar>
+      <div className="bg-gray-100 rounded-lg p-4 max-w-2xl prose">
+        <ReactMarkdown>{content || ''}</ReactMarkdown>
+        {metadata && (
+          <div className="mt-4">
+            {metadata.preview_image && (
+              <img 
+                src={metadata.preview_image} 
+                alt="Model Preview" 
+                className="rounded-lg shadow-md max-w-full"
+              />
+            )}
+            <div className="flex items-center justify-end space-x-2 mt-2">
+              {metadata.code_file && (
+                <Button as="a" href={metadata.code_file} target="_blank" rel="noopener noreferrer" variant="ghost" size="icon" title="Download Code">
+                  <Code className="h-4 w-4" />
+                </Button>
+              )}
+              {metadata.cad_file && (
+                <Button as="a" href={metadata.cad_file} target="_blank" rel="noopener noreferrer" variant="ghost" size="icon" title="Download CAD File">
+                  <Download className="h-4 w-4" />
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" title="Share">
+                <Share2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 
 const GeometricModelingPage = () => {
@@ -49,7 +70,9 @@ const GeometricModelingPage = () => {
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [conversationId, setConversationId] = useState(null); // 新增
   const { user } = useUserStore();
+  const { fetchHistory } = useOutletContext(); // 获取刷新函数
 
   const handleSendMessage = async () => {
     if ((!inputValue.trim() && !selectedFile) || isStreaming) return;
@@ -81,7 +104,7 @@ const GeometricModelingPage = () => {
       query: inputValue,
       response_mode: "streaming",
       user: user?.email || "anonymous", // 使用用户的 email 或一个匿名标识
-      // conversation_id: "some-conversation-id", // 如果需要，管理会话ID
+      conversation_id: conversationId, // 使用状态中的 conversationId
       files: filesForRequest,
     };
 
@@ -90,12 +113,26 @@ const GeometricModelingPage = () => {
       onOpen: () => {
         console.log("SSE connection opened.");
       },
-      onMessage: (data) => {
+      onMessage: ({ event, data }) => {
+        if (event === 'conversation_info') {
+          if (!conversationId) { // 仅在第一次收到时调用
+            fetchHistory();
+          }
+          setConversationId(data.conversation_id);
+          return; // 不更新消息
+        }
+
         setMessages(prev => {
           const newMessages = [...prev];
           const lastMessage = newMessages[newMessages.length - 1];
-          lastMessage.content = data.answer;
-          lastMessage.metadata = data.metadata;
+
+          if (event === 'text_chunk') {
+            lastMessage.content += data.text;
+          } else if (event === 'message_end') {
+            lastMessage.content = data.answer; // 确保最终文本是完整的
+            lastMessage.metadata = data.metadata;
+          }
+          
           return newMessages;
         });
       },
