@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Download, Share2, Code } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import ChatInput from '@/components/ChatInput.jsx';
-import { streamGeometryModeling } from '@/api/geometricModelingAPI';
+import { executeTaskAPI } from '@/api/taskAPI';
 import { uploadFileAPI } from '@/api/fileAPI.js'; // 假设这个API也需要更新
 import useUserStore from '@/store/userStore';
+import useConversationStore from '@/store/conversationStore';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const SuggestionButton = ({ text }) => (
@@ -70,9 +71,16 @@ const GeometricModelingPage = () => {
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [conversationId, setConversationId] = useState(null); // 新增
+  const [currentTaskId, setCurrentTaskId] = useState(null);
   const { user } = useUserStore();
-  const { fetchHistory } = useOutletContext(); // 获取刷新函数
+  const { ensureConversation, createTask } = useConversationStore();
+  const { fetchHistory } = useOutletContext(); // 这个现在是 fetchConversations
+
+  // 当 activeConversationId 变为 null 时，重置页面状态
+  useEffect(() => {
+    // This logic is now handled by the startNewConversation action
+    // and the initial state of the page component.
+  }, []);
 
   const handleSendMessage = async () => {
     if ((!inputValue.trim() && !selectedFile) || isStreaming) return;
@@ -100,41 +108,67 @@ const GeometricModelingPage = () => {
       setSelectedFile(null);
     }
 
+    // 1. 确保对话存在
+    const conversationId = await ensureConversation(inputValue.substring(0, 20));
+    if (!conversationId) {
+      console.error("无法获取或创建对话，任务中止。");
+      setIsStreaming(false);
+      return;
+    }
+
+    let taskIdToUse = currentTaskId;
+
+    // 2. 如果没有当前任务ID，则创建一个新任务
+    if (!taskIdToUse) {
+      const newTask = await createTask({
+        conversation_id: conversationId,
+        task_type: 'geometry',
+        details: { query: inputValue.substring(0, 50) }
+      });
+      if (!newTask) {
+        console.error("无法创建任务，任务中止。");
+        setIsStreaming(false);
+        return;
+      }
+      taskIdToUse = newTask.task_id;
+      setCurrentTaskId(taskIdToUse); // 保存新任务ID
+    }
+
+    // 3. 准备并执行任务
     const requestData = {
       query: inputValue,
-      response_mode: "streaming",
-      user: user?.email || "anonymous", // 使用用户的 email 或一个匿名标识
-      conversation_id: conversationId, // 使用状态中的 conversationId
+      user: user?.email || "anonymous",
+      conversation_id: conversationId,
+      task_id: taskIdToUse, // 使用保存的或新创建的任务ID
+      task_type: 'geometry',
       files: filesForRequest,
     };
 
-    streamGeometryModeling({
-      requestData,
-      onOpen: () => {
-        console.log("SSE connection opened.");
-      },
-      onMessage: ({ event, data }) => {
-        if (event === 'conversation_info') {
-          if (!conversationId) { // 仅在第一次收到时调用
-            fetchHistory();
-          }
-          setConversationId(data.conversation_id);
-          return; // 不更新消息
-        }
-
-        setMessages(prev => {
-          const newMessages = [...prev];
-          const lastMessage = newMessages[newMessages.length - 1];
-
-          if (event === 'text_chunk') {
+    executeTaskAPI({
+      ...requestData,
+      response_mode: "streaming",
+      onMessage: {
+        conversation_info: (data) => {
+          console.log("Task and conversation info received:", data);
+          // 可以在这里更新UI，例如显示任务ID
+        },
+        text_chunk: (data) => {
+          setMessages(prev => {
+            const newMessages = [...prev];
+            const lastMessage = newMessages[newMessages.length - 1];
             lastMessage.content += data.text;
-          } else if (event === 'message_end') {
+            return newMessages;
+          });
+        },
+        message_end: (data) => {
+          setMessages(prev => {
+            const newMessages = [...prev];
+            const lastMessage = newMessages[newMessages.length - 1];
             lastMessage.content = data.answer; // 确保最终文本是完整的
             lastMessage.metadata = data.metadata;
-          }
-          
-          return newMessages;
-        });
+            return newMessages;
+          });
+        },
       },
       onError: (error) => {
         console.error("SSE error:", error);

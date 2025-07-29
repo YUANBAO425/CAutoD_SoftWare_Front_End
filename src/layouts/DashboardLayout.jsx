@@ -11,12 +11,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LogOut, Settings, Bell, ChevronDown, Plus, MessageSquare, Search, Settings2, Code, User } from 'lucide-react';
-import { getConversationsAPI } from '../api/dashboardAPI';
 import useUserStore from '../store/userStore';
+import useConversationStore from '../store/conversationStore';
 
-const NavItem = ({ to, icon: Icon, text }) => (
+const NavItem = ({ to, icon: Icon, text, onClick }) => (
   <NavLink
     to={to}
+    onClick={onClick}
     className={({ isActive }) =>
       `flex items-center p-2 rounded-lg ${
         isActive ? 'bg-pink-600 text-white' : 'hover:bg-blue-800'
@@ -27,8 +28,9 @@ const NavItem = ({ to, icon: Icon, text }) => (
   </NavLink>
 );
 
-const Sidebar = ({ history }) => {
+const Sidebar = () => {
   const { user, logout } = useUserStore();
+  const { conversations, activeConversationId, setActiveConversationId, startNewConversation } = useConversationStore();
 
   // 格式化日期
   const formatDate = (dateString) => {
@@ -41,7 +43,7 @@ const Sidebar = ({ history }) => {
       <div className="text-2xl font-bold mb-10">CAutoD</div>
       <NavItem to="/create-project" icon={Plus} text="创建项目" />
       <nav className="mt-6 flex-1">
-        <NavItem to="/geometry" icon={MessageSquare} text="几何建模" />
+        <NavItem to="/geometry" icon={MessageSquare} text="几何建模" onClick={startNewConversation} />
         <NavItem to="/parts" icon={Search} text="零件检索" />
         <NavItem to="/design-optimization" icon={Settings2} text="设计优化" />
         <NavItem to="/software-interface" icon={Code} text="软件界面" />
@@ -49,12 +51,20 @@ const Sidebar = ({ history }) => {
       <div className="mt-auto">
         <div className="mb-4">
           <h3 className="text-sm text-gray-400 mb-2 px-2">历史记录</h3>
-          {history.length > 0 ? (
+          {conversations.length > 0 ? (
             <>
-              {history.slice(0, 3).map(item => (
-                <a key={item.id} href="#" className="block p-2 rounded-lg hover:bg-blue-800 text-sm truncate">{item.title}</a>
+              {conversations.slice(0, 3).map(item => (
+                <button 
+                  key={item.conversation_id} 
+                  onClick={() => setActiveConversationId(item.conversation_id)}
+                  className={`block w-full text-left p-2 rounded-lg text-sm truncate ${
+                    item.conversation_id === activeConversationId ? 'bg-pink-600' : 'hover:bg-blue-800'
+                  }`}
+                >
+                  {item.title}
+                </button>
               ))}
-              {history.length > 3 && (
+              {conversations.length > 3 && (
                 <div className="px-2 text-gray-400">...</div>
               )}
             </>
@@ -120,32 +130,24 @@ const Header = ({ onLogout }) => {
 };
 
 const DashboardLayout = () => {
-  const [history, setHistory] = useState([]);
   const { user, logout } = useUserStore();
+  const { fetchConversations, addConversation } = useConversationStore();
   const location = useLocation();
   const isFlushPage = ['/geometry', '/parts', '/design-optimization', '/software-interface'].includes(location.pathname);
 
-  const fetchHistory = () => {
-    if (user && user.user_id) {
-      getConversationsAPI(user.user_id).then(conversations => {
-        setHistory(conversations);
-      }).catch(error => {
-        console.error("Failed to fetch conversations in layout:", error);
-      });
-    }
-  };
-
   useEffect(() => {
-    fetchHistory();
-  }, [user]);
+    if (user && user.user_id) {
+      fetchConversations(user.user_id);
+    }
+  }, [user, fetchConversations]);
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar history={history} />
+      <Sidebar />
       <div className="flex-1 flex flex-col">
         <Header onLogout={logout} />
         <main className={`flex-1 overflow-y-auto ${isFlushPage ? '' : 'p-8'}`}>
-          <Outlet context={{ history, fetchHistory }} />
+          <Outlet context={{ fetchHistory: fetchConversations, addConversation }} />
         </main>
       </div>
     </div>

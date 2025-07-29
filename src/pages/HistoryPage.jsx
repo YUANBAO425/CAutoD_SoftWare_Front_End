@@ -1,52 +1,90 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Trash2, Search } from 'lucide-react';
-import { getConversationsAPI } from '../api/dashboardAPI';
-import useUserStore from '../store/userStore';
+import { Trash2, Search, ChevronDown, ChevronRight } from 'lucide-react';
+import useConversationStore from '../store/conversationStore';
+import { getConversationDetailsAPI } from '../api/conversationAPI';
 
-const HistoryItem = ({ item, onDelete }) => (
-  <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-    <div>
-      <p className="font-semibold">{item.title}</p>
-      <p className="text-sm text-gray-500">{new Date(item.created_at).toLocaleString()}</p>
+const TaskItem = ({ task }) => (
+  <div className="pl-10 pr-4 py-2 bg-gray-50 border-t">
+    <div className="flex justify-between items-center">
+      <div>
+        <p className="font-medium text-sm">{task.task_type}</p>
+        <p className="text-xs text-gray-500">任务ID: {task.task_id}</p>
+        {/* <p className="text-xs text-gray-500">{task.summary}</p> */}
+      </div>
+      <div className="text-right">
+        <p className={`text-xs font-semibold ${task.status === '完成' ? 'text-green-600' : 'text-yellow-600'}`}>{task.status}</p>
+        <p className="text-xs text-gray-400">{new Date(task.created_at).toLocaleTimeString()}</p>
+      </div>
     </div>
-    <Button variant="ghost" size="icon" onClick={() => onDelete(item.conversation_id)}>
-      <Trash2 className="h-5 w-5 text-gray-400 hover:text-red-500" />
-    </Button>
   </div>
 );
 
-const HistoryPage = () => {
-  const [history, setHistory] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const { user } = useUserStore();
+const HistoryItem = ({ item, onDelete }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [tasks, setTasks] = useState([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      if (!user || !user.user_id) {
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
+  const handleToggle = async () => {
+    setIsOpen(!isOpen);
+    if (!isOpen && tasks.length === 0) {
+      setIsLoadingTasks(true);
       try {
-        const conversations = await getConversationsAPI(user.user_id);
-        setHistory(conversations);
+        const conversationDetails = await getConversationDetailsAPI(item.conversation_id);
+        // The backend returns the conversation object which should contain a list of tasks.
+        // We assume the tasks are in a property named 'tasks'.
+        setTasks(conversationDetails.tasks || []);
       } catch (error) {
-        console.error("Failed to fetch history:", error);
+        console.error("Failed to fetch conversation details:", error);
+        setTasks([]); // On error, set tasks to an empty array
       } finally {
-        setIsLoading(false);
+        setIsLoadingTasks(false);
       }
-    };
-    fetchHistory();
-  }, [user]);
-
-  const handleDelete = (conversation_id) => {
-    setHistory(history.filter(item => item.conversation_id !== conversation_id));
+    }
   };
 
-  const filteredHistory = history.filter(item =>
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <div className="flex items-center justify-between p-4 hover:bg-gray-50 cursor-pointer" onClick={handleToggle}>
+        <div className="flex items-center">
+          {isOpen ? <ChevronDown className="h-5 w-5 mr-3" /> : <ChevronRight className="h-5 w-5 mr-3" />}
+          <div>
+            <p className="font-semibold">{item.title}</p>
+            <p className="text-sm text-gray-500">{new Date(item.created_at).toLocaleString()}</p>
+          </div>
+        </div>
+        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onDelete(item.conversation_id); }}>
+          <Trash2 className="h-5 w-5 text-gray-400 hover:text-red-500" />
+        </Button>
+      </div>
+      {isOpen && (
+        <div>
+          {isLoadingTasks ? (
+            <p className="p-4 text-center text-gray-500">加载任务中...</p>
+          ) : tasks.length > 0 ? (
+            tasks.map(task => <TaskItem key={task.task_id} task={task} />)
+          ) : (
+            <p className="p-4 text-center text-gray-500">该对话下没有任务。</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const HistoryPage = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const { conversations, isLoading, error } = useConversationStore();
+
+  // 注意：删除功能现在应该在 store 中实现，以确保状态一致性
+  const handleDelete = (conversation_id) => {
+    console.log("删除功能待实现: ", conversation_id);
+    // 在 store 中实现删除逻辑:
+    // deleteConversation(conversation_id);
+  };
+
+  const filteredHistory = (conversations || []).filter(item =>
     item.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -57,6 +95,10 @@ const HistoryPage = () => {
       </div>
     );
   }
+  
+  if (error) {
+    return <div className="p-8 text-center text-red-500">加载历史记录失败。</div>;
+  }
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -65,7 +107,7 @@ const HistoryPage = () => {
       <div className="relative mb-6">
         <Input
           type="text"
-          placeholder="Search your topic history here..."
+          placeholder="搜索历史对话..."
           className="w-full p-6 rounded-full border-gray-300 pl-12"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -74,14 +116,18 @@ const HistoryPage = () => {
       </div>
 
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold">All</h2>
-        <Button variant="link" className="text-gray-600">Select all</Button>
+        <h2 className="text-lg font-semibold">所有对话</h2>
+        <Button variant="link" className="text-gray-600">选择全部</Button>
       </div>
 
       <div className="space-y-4">
-        {filteredHistory.map(item => (
-          <HistoryItem key={item.conversation_id} item={item} onDelete={handleDelete} />
-        ))}
+        {filteredHistory.length > 0 ? (
+          filteredHistory.map(item => (
+            <HistoryItem key={item.conversation_id} item={item} onDelete={handleDelete} />
+          ))
+        ) : (
+          <p className="text-center text-gray-500">没有找到匹配的对话。</p>
+        )}
       </div>
     </div>
   );

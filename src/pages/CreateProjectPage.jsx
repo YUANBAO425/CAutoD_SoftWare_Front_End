@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { MessageSquare, Search, Settings2, Code, MoreHorizontal } from 'lucide-react';
 import useUserStore from '../store/userStore';
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import useConversationStore from '../store/conversationStore';
+import { useNavigate } from 'react-router-dom';
 
 const QuickActionButton = ({ icon: Icon, text, onClick }) => (
   <Button
@@ -29,8 +30,11 @@ const HistoryCard = ({ title, time }) => (
 
 const CreateProjectPage = () => {
   const { user } = useUserStore();
-  const { history } = useOutletContext();
+  const { conversations } = useConversationStore();
   const navigate = useNavigate();
+
+  // 为卡片提供一个安全的回退
+  const history = conversations || [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -61,7 +65,7 @@ const CreateProjectPage = () => {
         {history.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {history.slice(0, 3).map(item => (
-              <HistoryCard key={item.id} title={item.title} time={item.time} />
+              <HistoryCard key={item.conversation_id} title={item.title} time={new Date(item.created_at).toLocaleString()} />
             ))}
           </div>
         ) : (

@@ -2,9 +2,17 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Download } from 'lucide-react';
-import { optimizeDesign } from '@/api/designOptimizationAPI';
+import { executeTaskAPI } from '@/api/taskAPI';
 import { uploadFileAPI } from '@/api/fileAPI.js';
 import ChatInput from '@/components/ChatInput.jsx';
+import useConversationStore from '@/store/conversationStore';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.jsx";
 
 const UserMessage = ({ content }) => (
   <div className="flex justify-end my-4">
@@ -59,14 +67,41 @@ const OptimizationResultMessage = ({ message }) => {
   );
 };
 
+const ConversationSelector = () => {
+  const { conversations, activeConversationId, setActiveConversationId } = useConversationStore();
+
+  if (conversations.length === 0) {
+    return <p className="text-center text-gray-500">请先在“几何建模”页面创建一个对话。</p>;
+  }
+
+  return (
+    <div className="mb-4">
+      <Select value={activeConversationId} onValueChange={setActiveConversationId}>
+        <SelectTrigger className="w-[280px]">
+          <SelectValue placeholder="选择一个对话..." />
+        </SelectTrigger>
+        <SelectContent>
+          {conversations.map(conv => (
+            <SelectItem key={conv.conversation_id} value={conv.conversation_id}>
+              {conv.title}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
+
 const DesignOptimizationPage = () => {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [currentTaskId, setCurrentTaskId] = useState(null);
+  const { activeConversationId, createTask } = useConversationStore();
 
   const handleSendMessage = async () => {
-    if (!selectedFile || isStreaming) return;
+    if (!selectedFile || isStreaming || !activeConversationId) return;
 
     const userMessage = { role: 'user', content: `优化文件: ${selectedFile.name}` };
     setMessages(prev => [...prev, userMessage]);
@@ -76,16 +111,33 @@ const DesignOptimizationPage = () => {
     setMessages(prev => [...prev, aiMessagePlaceholder]);
 
     try {
-      // 在真实应用中，你可能需要解析 inputValue 来获取 constraints, parameters 等
+      let taskIdToUse = currentTaskId;
+
+      // 1. 如果没有当前任务ID，则创建一个新任务
+      if (!taskIdToUse) {
+        const newTask = await createTask({
+          conversation_id: activeConversationId,
+          task_type: 'design_optimization',
+          details: { fileName: selectedFile.name }
+        });
+        if (!newTask) throw new Error("Task creation failed");
+        taskIdToUse = newTask.task_id;
+        setCurrentTaskId(taskIdToUse); // 保存新任务ID
+      }
+
+      // 2. 执行统一的任务API
       const requestData = {
+        task_type: 'design_optimization',
         method: 0, // or 1, based on user selection
         file: selectedFile.name,
+        conversation_id: activeConversationId,
+        task_id: taskIdToUse, // 使用保存的或新创建的任务ID
         // constraints: {}, 
         // parameters: [],
         // target: "minimize_volume",
       };
 
-      const response = await optimizeDesign(requestData);
+      const response = await executeTaskAPI(requestData);
       const result = JSON.parse(response); // 后端返回的是 JSON 字符串
 
       setMessages(prev => prev.map((msg, i) =>
@@ -111,6 +163,7 @@ const DesignOptimizationPage = () => {
       <div className="flex flex-col items-center justify-center h-full bg-white pb-40">
         <div className="w-full max-w-2xl text-center">
           <h1 className="text-4xl font-bold mb-8">需要我为您优化什么？</h1>
+          <ConversationSelector />
           <ChatInput
             inputValue={inputValue}
             onInputChange={(e) => setInputValue(e.target.value)}
@@ -120,6 +173,7 @@ const DesignOptimizationPage = () => {
             selectedFile={selectedFile}
             onFileSelect={setSelectedFile}
             isInitialView={true}
+            disabled={!activeConversationId}
           />
         </div>
       </div>

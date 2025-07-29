@@ -22,5 +22,6 @@ export const getConversationsAPI = (userId) => {
   formData.append("authorization", token); // 将 token 作为表单字段传递
 
   // 注意：这里的 post 函数需要能处理 FormData 和正确的 URL
-  return post(`/api/conservation_all/${userId}`, formData);
+  // URL 已修正，并且 /api 前缀由 axios baseURL 提供
+  return post(`/conversation_all/${userId}`, formData);
 };
