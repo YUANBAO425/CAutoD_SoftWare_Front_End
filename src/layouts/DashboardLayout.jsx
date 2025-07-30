@@ -10,8 +10,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, Settings, Bell, ChevronDown, Plus, MessageSquare, Search, Settings2, Code, User } from 'lucide-react';
+import { LogOut, Settings, Bell, ChevronDown, Plus, MessageSquare, Search, Settings2, Code, User, Clock } from 'lucide-react';
 import useUserStore from '../store/userStore';
+import TaskQueue from '@/components/TaskQueue';
 import useConversationStore from '../store/conversationStore';
 
 const NavItem = ({ to, icon: Icon, text, onClick }) => (
@@ -111,10 +112,13 @@ const Sidebar = () => {
   );
 };
 
-const Header = ({ onLogout }) => {
+const Header = ({ onLogout, onToggleTaskQueue }) => {
   return (
     <header className="flex items-center justify-end p-3 bg-white border-b">
       <div className="flex items-center space-x-4">
+        <Button variant="ghost" size="icon" onClick={onToggleTaskQueue}>
+          <Clock className="h-5 w-5" />
+        </Button>
         <Button variant="ghost" size="icon">
           <Settings className="h-5 w-5" />
         </Button>
@@ -133,6 +137,7 @@ const DashboardLayout = () => {
   const { user, logout } = useUserStore();
   const { fetchConversations, addConversation } = useConversationStore();
   const location = useLocation();
+  const [isTaskQueueOpen, setIsTaskQueueOpen] = useState(false);
   const isFlushPage = ['/geometry', '/parts', '/design-optimization', '/software-interface'].includes(location.pathname);
 
   useEffect(() => {
@@ -145,11 +150,12 @@ const DashboardLayout = () => {
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
       <div className="flex-1 flex flex-col">
-        <Header onLogout={logout} />
+        <Header onLogout={logout} onToggleTaskQueue={() => setIsTaskQueueOpen(true)} />
         <main className={`flex-1 overflow-y-auto ${isFlushPage ? '' : 'p-8'}`}>
           <Outlet context={{ fetchHistory: fetchConversations, addConversation }} />
         </main>
       </div>
+      <TaskQueue isOpen={isTaskQueueOpen} onOpenChange={setIsTaskQueueOpen} />
     </div>
   );
 };

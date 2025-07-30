@@ -41,3 +41,11 @@ export const executeTaskAPI = (executeData) => {
     return post("/tasks/execute", requestData);
   }
 };
+
+/**
+ * 获取所有待处理的任务
+ * @returns {Promise<Array>} - 包含待处理任务对象的数组
+ */
+export const getPendingTasksAPI = () => {
+  return get("/tasks/pending");
+};
