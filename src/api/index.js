@@ -2,7 +2,7 @@ import axios from "axios";
 
 // 创建axios实例
 const instance = axios.create({
-  baseURL: "http://127.0.0.1:8080/api",
+  baseURL: process.env.VITE_API_URL,
   timeout: 10000, // 请求超时时间
 });
 
@@ -58,7 +58,7 @@ export const sse = (
 
   const start = async () => {
     try {
-      const response = await fetch(`http://127.0.0.1:8080/api${url}`, {
+      const response = await fetch(`${process.env.VITE_API_URL}${url}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
