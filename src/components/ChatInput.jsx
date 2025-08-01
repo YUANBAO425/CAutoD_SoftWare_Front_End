@@ -11,7 +11,8 @@ const ChatInput = ({
   placeholder,
   selectedFile,
   onFileSelect,
-  isInitialView = false
+  isInitialView = false,
+  disabled = false // Accept a disabled prop
 }) => {
 
   const handleAttachmentClick = () => {
@@ -53,17 +54,20 @@ const ChatInput = ({
           value={inputValue}
           onChange={onInputChange}
           onKeyPress={handleKeyPress}
-          disabled={isStreaming}
+          disabled={isStreaming || disabled}
         />
         <div className="absolute right-4 flex items-center space-x-2">
-          <Button variant="ghost" size="icon" onClick={handleAttachmentClick}>
+          <Button variant="ghost" size="icon" onClick={handleAttachmentClick} disabled={disabled || isStreaming}>
             <Paperclip className="h-5 w-5 text-gray-500" />
           </Button>
           <Button 
             size="icon" 
             className="bg-pink-500 hover:bg-pink-600 rounded-md" 
-            onClick={onSendMessage} 
-            disabled={isStreaming || (!inputValue.trim() && !selectedFile)}
+            onClick={() => {
+              console.log("ChatInput: Send button clicked.");
+              onSendMessage();
+            }} 
+            disabled={isStreaming || (!inputValue.trim() && !selectedFile) || disabled}
           >
             <ArrowUp className="h-5 w-5 text-white" />
           </Button>

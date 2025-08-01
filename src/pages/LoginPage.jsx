@@ -9,7 +9,7 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const { login, error, clearError } = useUserStore();
   const [formData, setFormData] = useState({
-    email: '',
+    identifier: '',
     password: ''
   });
   const [loading, setLoading] = useState(false);
@@ -26,7 +26,11 @@ const LoginPage = () => {
     
     try {
       const data = new FormData();
-      data.append('email', formData.email);
+      if (formData.identifier.includes('@')) {
+        data.append('email', formData.identifier);
+      } else {
+        data.append('username', formData.identifier);
+      }
       data.append('password', formData.password);
       
       await login(data);
@@ -44,7 +48,7 @@ const LoginPage = () => {
         {/* Left side: Form */}
         <div className="w-1/2 bg-white p-8">
           <h2 className="text-2xl font-bold mb-2 text-center">登录</h2>
-          <p className="text-center text-gray-500 mb-6">输入你的邮箱和密码</p>
+          <p className="text-center text-gray-500 mb-6">输入您的用户名或邮箱和密码</p>
 
           <Button variant="outline" className="w-full mb-4">
             <img src="/src/assets/google_logo_icon_169090.svg" alt="Google" className="w-5 h-5 mr-2" />
@@ -59,15 +63,15 @@ const LoginPage = () => {
 
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
-              <label className="block text-gray-700 mb-2" htmlFor="email">
-                邮箱 <span className="text-red-500">*</span>
+              <label className="block text-gray-700 mb-2" htmlFor="identifier">
+                用户名或邮箱 <span className="text-red-500">*</span>
               </label>
               <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="your@email.com"
-                value={formData.email}
+                id="identifier"
+                name="identifier"
+                type="text"
+                placeholder="输入您的用户名或邮箱"
+                value={formData.identifier}
                 onChange={handleChange}
                 required
               />

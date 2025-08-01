@@ -15,7 +15,7 @@ export const loginAPI = (data) => {
 /**
  * 用户注册
  * 功能描述：创建新用户
- * 入参：{ user_id, email, pwd }
+ * 入参：{ username, email, pwd }
  * 返回参数：重定向或错误信息
  * url地址：/user/register
  * 请求方式：POST

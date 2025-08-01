@@ -134,11 +134,15 @@ const Header = ({ onLogout, onToggleTaskQueue }) => {
 };
 
 const DashboardLayout = () => {
-  const { user, logout } = useUserStore();
+  const { user, token, logout } = useUserStore(); // 确保 token 也被解构出来
   const { fetchConversations, addConversation } = useConversationStore();
   const location = useLocation();
   const [isTaskQueueOpen, setIsTaskQueueOpen] = useState(false);
   const isFlushPage = ['/geometry', '/parts', '/design-optimization', '/software-interface'].includes(location.pathname);
+
+  console.log("DashboardLayout - user:", user);
+  console.log("DashboardLayout - token:", token); // 直接打印 token
+  console.log("DashboardLayout - user.user_id:", user?.user_id);
 
   useEffect(() => {
     if (user && user.user_id) {

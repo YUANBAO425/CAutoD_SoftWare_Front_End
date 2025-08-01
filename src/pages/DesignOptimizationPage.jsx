@@ -95,20 +95,20 @@ const ConversationSelector = () => {
 const DesignOptimizationPage = () => {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
-  const [isStreaming, setIsStreaming] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [currentTaskId, setCurrentTaskId] = useState(null);
   const { activeConversationId, createTask } = useConversationStore();
 
   const handleSendMessage = async () => {
-    if (!selectedFile || isStreaming || !activeConversationId) return;
+    // 核心逻辑完全参考 PartRetrievalPage.jsx
+    if (!selectedFile || isLoading || !activeConversationId) return;
+
+    setIsLoading(true);
 
     const userMessage = { role: 'user', content: `优化文件: ${selectedFile.name}` };
     setMessages(prev => [...prev, userMessage]);
-    
-    setIsStreaming(true);
-    const aiMessagePlaceholder = { role: 'ai', text: '正在处理您的优化请求...', result: null, isLoading: true };
-    setMessages(prev => [...prev, aiMessagePlaceholder]);
+    setInputValue('');
 
     try {
       let taskIdToUse = currentTaskId;
@@ -117,7 +117,7 @@ const DesignOptimizationPage = () => {
       if (!taskIdToUse) {
         const newTask = await createTask({
           conversation_id: activeConversationId,
-          task_type: 'design_optimization',
+          task_type: 'optimize', // 任务类型修正
           details: { fileName: selectedFile.name }
         });
         if (!newTask) throw new Error("Task creation failed");
@@ -127,33 +127,30 @@ const DesignOptimizationPage = () => {
 
       // 2. 执行统一的任务API
       const requestData = {
-        task_type: 'design_optimization',
+        task_type: 'optimize', // 任务类型修正
         method: 0, // or 1, based on user selection
         file: selectedFile.name,
         conversation_id: activeConversationId,
-        task_id: taskIdToUse, // 使用保存的或新创建的任务ID
-        // constraints: {}, 
-        // parameters: [],
-        // target: "minimize_volume",
+        task_id: taskIdToUse,
       };
 
       const response = await executeTaskAPI(requestData);
-      const result = JSON.parse(response); // 后端返回的是 JSON 字符串
-
-      setMessages(prev => prev.map((msg, i) =>
-        i === prev.length - 1 ? { ...msg, text: '优化完成！', result: result, isLoading: false } : msg
-      ));
+      
+      // 注意：后端对设计优化的响应是直接的JSON对象，不是流
+      const aiMessage = { 
+        role: 'ai', 
+        text: '优化完成！', 
+        result: response, // 直接使用响应对象
+        isLoading: false 
+      };
+      setMessages(prev => [...prev, aiMessage]);
+      setIsLoading(false);
 
     } catch (error) {
       console.error("Failed to optimize design:", error);
       const errorMessage = { role: 'ai', text: '抱歉，优化时出现错误。', result: null, isLoading: false };
-      setMessages(prev => prev.map((msg, i) =>
-        i === prev.length - 1 ? errorMessage : msg
-      ));
-    } finally {
-      setIsStreaming(false);
-      setInputValue('');
-      setSelectedFile(null);
+      setMessages(prev => [...prev, errorMessage]);
+      setIsLoading(false);
     }
   };
 
@@ -168,12 +165,11 @@ const DesignOptimizationPage = () => {
             inputValue={inputValue}
             onInputChange={(e) => setInputValue(e.target.value)}
             onSendMessage={handleSendMessage}
-            isStreaming={isStreaming}
+            isStreaming={isLoading}
             placeholder="例如：轻量化这个机械臂，要求满足材料应力约束"
             selectedFile={selectedFile}
             onFileSelect={setSelectedFile}
             isInitialView={true}
-            disabled={!activeConversationId}
           />
         </div>
       </div>
@@ -195,7 +191,7 @@ const DesignOptimizationPage = () => {
           inputValue={inputValue}
           onInputChange={(e) => setInputValue(e.target.value)}
           onSendMessage={handleSendMessage}
-          isStreaming={isStreaming}
+          isStreaming={isLoading}
           placeholder="模型保存"
           selectedFile={selectedFile}
           onFileSelect={setSelectedFile}

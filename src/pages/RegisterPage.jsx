@@ -8,7 +8,7 @@ const RegisterPage = () => {
   const navigate = useNavigate();
   const { register, error, clearError } = useUserStore();
   const [formData, setFormData] = useState({
-    userId: '',
+    username: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -27,15 +27,15 @@ const RegisterPage = () => {
       alert("密码不匹配！");
       return;
     }
-    if (!formData.userId.trim()) {
-      alert("用户ID不能为空！");
+    if (!formData.username.trim()) {
+      alert("用户名不能为空！");
       return;
     }
     setLoading(true);
     
     try {
       const data = new FormData();
-      data.append('user_id', formData.userId);
+      data.append('username', formData.username);
       data.append('email', formData.email);
       data.append('pwd', formData.password);
 
@@ -60,15 +60,15 @@ const RegisterPage = () => {
 
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
-              <label className="block text-gray-700 mb-2" htmlFor="userId">
-                用户 ID <span className="text-red-500">*</span>
+              <label className="block text-gray-700 mb-2" htmlFor="username">
+                用户名 <span className="text-red-500">*</span>
               </label>
               <Input
-                id="userId"
-                name="userId"
-                type="number"
-                placeholder="Enter your user ID"
-                value={formData.userId}
+                id="username"
+                name="username"
+                type="text"
+                placeholder="Enter your username"
+                value={formData.username}
                 onChange={handleChange}
                 required
               />
