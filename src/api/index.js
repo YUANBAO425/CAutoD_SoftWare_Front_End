@@ -3,7 +3,7 @@ import axios from "axios";
 // 创建axios实例
 const instance = axios.create({
   baseURL: process.env.VITE_API_URL,
-  timeout: 10000, // 请求超时时间
+  timeout: 60000, // 请求超时时间
 });
 
 // 请求拦截器

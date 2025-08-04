@@ -33,21 +33,7 @@ const ImagePlaceholder = () => (
 );
 
 const OptimizationResultMessage = ({ message }) => {
-  if (!message.result) {
-    return (
-      <div className="flex items-start my-4">
-        <Avatar className="mr-4">
-          <AvatarFallback>O</AvatarFallback>
-        </Avatar>
-        <div className="flex-1 bg-gray-100 rounded-lg p-4">
-          <p>{message.text || ''}</p>
-          {message.isLoading && <ImagePlaceholder />}
-        </div>
-      </div>
-    );
-  }
-
-  const { optimized_file, best_params, final_volume, final_stress, unit, constraint_satisfied } = message.result;
+  const { text, metadata, isLoading } = message;
 
   return (
     <div className="flex items-start my-4">
@@ -55,13 +41,18 @@ const OptimizationResultMessage = ({ message }) => {
         <AvatarFallback>O</AvatarFallback>
       </Avatar>
       <div className="flex-1 bg-gray-100 rounded-lg p-4 prose">
-        <h4>优化结果</h4>
-        <p>优化后的文件: <strong>{optimized_file}</strong></p>
-        <p>最优参数: <code>[{best_params.join(', ')}]</code></p>
-        <p>最终体积: {final_volume} {unit.volume}</p>
-        <p>最终应力: {final_stress} {unit.stress}</p>
-        <p>约束满足情况: {constraint_satisfied ? '是' : '否'}</p>
-        <Button><Download className="mr-2 h-4 w-4" /> 下载优化后的文件</Button>
+        <p>{text || ''}</p>
+        {isLoading && <ImagePlaceholder />}
+        {metadata && (
+          <div className="mt-4">
+            <h4>优化结果</h4>
+            <p>优化后的文件: <strong>{metadata.cad_file}</strong></p>
+            {/* 这里可以根据需要展示更多元数据 */}
+            <Button as="a" href={metadata.cad_file} target="_blank" rel="noopener noreferrer">
+              <Download className="mr-2 h-4 w-4" /> 下载优化后的文件
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -101,54 +92,83 @@ const DesignOptimizationPage = () => {
   const { activeConversationId, createTask } = useConversationStore();
 
   const handleSendMessage = async () => {
-    // 核心逻辑完全参考 PartRetrievalPage.jsx
     if (!selectedFile || isLoading || !activeConversationId) return;
 
     setIsLoading(true);
 
     const userMessage = { role: 'user', content: `优化文件: ${selectedFile.name}` };
     setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
+    
+    const aiMessagePlaceholder = { role: 'ai', text: '', metadata: null, isLoading: true };
+    setMessages(prev => [...prev, aiMessagePlaceholder]);
 
     try {
       let taskIdToUse = currentTaskId;
 
-      // 1. 如果没有当前任务ID，则创建一个新任务
       if (!taskIdToUse) {
         const newTask = await createTask({
           conversation_id: activeConversationId,
-          task_type: 'optimize', // 任务类型修正
+          task_type: 'optimize',
           details: { fileName: selectedFile.name }
         });
         if (!newTask) throw new Error("Task creation failed");
         taskIdToUse = newTask.task_id;
-        setCurrentTaskId(taskIdToUse); // 保存新任务ID
+        setCurrentTaskId(taskIdToUse);
       }
 
-      // 2. 执行统一的任务API
       const requestData = {
-        task_type: 'optimize', // 任务类型修正
-        method: 0, // or 1, based on user selection
-        file: selectedFile.name,
+        task_type: 'optimize',
+        file: selectedFile.name, // 假设后端需要文件名
         conversation_id: activeConversationId,
         task_id: taskIdToUse,
       };
 
-      const response = await executeTaskAPI(requestData);
-      
-      // 注意：后端对设计优化的响应是直接的JSON对象，不是流
-      const aiMessage = { 
-        role: 'ai', 
-        text: '优化完成！', 
-        result: response, // 直接使用响应对象
-        isLoading: false 
-      };
-      setMessages(prev => [...prev, aiMessage]);
-      setIsLoading(false);
+      executeTaskAPI({
+        ...requestData,
+        response_mode: "streaming",
+        onMessage: {
+          conversation_info: (data) => {
+            console.log("Task and conversation info received:", data);
+          },
+          text_chunk: (data) => {
+            setMessages(prev => {
+              const newMessages = [...prev];
+              const lastMessage = newMessages[newMessages.length - 1];
+              lastMessage.text += data.text;
+              return newMessages;
+            });
+          },
+          message_end: (data) => {
+            setMessages(prev => {
+              const newMessages = [...prev];
+              const lastMessage = newMessages[newMessages.length - 1];
+              lastMessage.text = data.answer;
+              lastMessage.metadata = data.metadata;
+              lastMessage.isLoading = false;
+              return newMessages;
+            });
+          },
+        },
+        onError: (error) => {
+          console.error("SSE error:", error);
+          setMessages(prev => {
+            const newMessages = [...prev];
+            const lastMessage = newMessages[newMessages.length - 1];
+            lastMessage.text = "抱歉，请求出错，请稍后再试。";
+            lastMessage.isLoading = false;
+            return newMessages;
+          });
+          setIsLoading(false);
+        },
+        onClose: () => {
+          console.log("SSE connection closed.");
+          setIsLoading(false);
+        },
+      });
 
     } catch (error) {
-      console.error("Failed to optimize design:", error);
-      const errorMessage = { role: 'ai', text: '抱歉，优化时出现错误。', result: null, isLoading: false };
+      console.error("Failed to start optimization task:", error);
+      const errorMessage = { role: 'ai', text: '抱歉，启动优化任务时出现错误。', metadata: null, isLoading: false };
       setMessages(prev => [...prev, errorMessage]);
       setIsLoading(false);
     }

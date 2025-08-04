@@ -132,7 +132,7 @@ const PartRetrievalPage = () => {
       if (!taskIdToUse) {
         const newTask = await createTask({
           conversation_id: activeConversationId,
-          task_type: 'part_retrieval',
+          task_type: 'retrieval',
           details: { query: inputValue, fileName: selectedFile?.name }
         });
         if (!newTask) throw new Error("Task creation failed");
@@ -142,7 +142,7 @@ const PartRetrievalPage = () => {
 
       // 2. 执行统一的任务API
       const response = await executeTaskAPI({
-        task_type: 'part_retrieval',
+        task_type: 'retrieval',
         query: inputValue, 
         file_url: fileUrl, 
         conversation_id: activeConversationId,
