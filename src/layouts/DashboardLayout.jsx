@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, Settings, Bell, ChevronDown, Plus, MessageSquare, Search, Settings2, Code, User, Clock } from 'lucide-react';
+import { LogOut, Settings, Bell, ChevronDown, Plus, MessageSquare, Search, Settings2, Code, User, Clock, ListChecks } from 'lucide-react';
 import useUserStore from '../store/userStore';
 import TaskQueue from '@/components/TaskQueue';
 import useConversationStore from '../store/conversationStore';
@@ -48,6 +48,7 @@ const Sidebar = () => {
         <NavItem to="/parts" icon={Search} text="零件检索" />
         <NavItem to="/design-optimization" icon={Settings2} text="设计优化" />
         <NavItem to="/software-interface" icon={Code} text="软件界面" />
+        <NavItem to="/tasks" icon={ListChecks} text="任务列表" />
       </nav>
       <div className="mt-auto">
         <div className="mb-4">

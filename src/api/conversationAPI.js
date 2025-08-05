@@ -1,4 +1,4 @@
-import { post } from "./index";
+import { get, post } from "./index";
 import useUserStore from "../store/userStore";
 
 /**
@@ -32,4 +32,14 @@ export const getConversationDetailsAPI = (conversation_id) => {
 
   // 注意: 后端路由已修正为 /conversation/
   return post(`/conversation/${conversation_id}`, formData);
+};
+
+/**
+ * 获取指定用户的所有对话历史记录
+ * @param {string} userId - 用户的ID
+ * @returns {Promise<object>} - 返回包含历史记录的数组
+ */
+export const getHistoryAPI = (userId) => {
+  // 后端接口需要 user_id 作为查询参数
+  return get(`/chat/history?user_id=${userId}`);
 };

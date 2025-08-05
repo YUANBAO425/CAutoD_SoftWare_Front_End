@@ -12,6 +12,7 @@ import PartRetrievalPage from './pages/PartRetrievalPage';
 import DesignOptimizationPage from './pages/DesignOptimizationPage';
 import SoftwareInterfacePage from './pages/SoftwareInterfacePage';
 import HistoryPage from './pages/HistoryPage';
+import TaskListPage from './pages/TaskListPage'; // 导入新页面
 import useUserStore from './store/userStore';
 
 // Placeholder pages for other routes
@@ -35,6 +36,7 @@ function App() {
             <Route path="design-optimization" element={<DesignOptimizationPage />} />
             <Route path="software-interface" element={<SoftwareInterfacePage />} />
             <Route path="history" element={<HistoryPage />} />
+            <Route path="tasks" element={<TaskListPage />} /> {/* 添加新路由 */}
             <Route path="*" element={<Navigate to="/" />} />
           </Route>
         ) : (

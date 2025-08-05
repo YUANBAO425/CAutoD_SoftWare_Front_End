@@ -1,14 +1,15 @@
 import { create } from "zustand";
 import { getConversationsAPI } from "../api/dashboardAPI";
 import { createTaskAPI } from "../api/taskAPI";
-import { createConversationAPI } from "../api/conversationAPI";
+import { createConversationAPI, getHistoryAPI } from "../api/conversationAPI";
 
 const useConversationStore = create((set, get) => ({
   conversations: [],
-  tasks: {}, // { [conversation_id]: [...] }
+  tasks: [], // 用于存储任务列表
   activeConversationId: null,
   activeTaskId: null,
   isLoading: false,
+  isLoadingTasks: false, // 用于任务列表加载状态
   error: null,
 
   setActiveConversationId: (conversationId) => {
@@ -99,6 +100,19 @@ const useConversationStore = create((set, get) => ({
     set((state) => ({
       conversations: [newConversation, ...state.conversations],
     }));
+  },
+
+  fetchTasks: async (userId) => {
+    if (!userId) return;
+    set({ isLoadingTasks: true, error: null });
+    try {
+      const response = await getHistoryAPI(userId);
+      // 假设后端返回的数据结构是 { history: [...] }
+      set({ tasks: response.history || [], isLoadingTasks: false });
+    } catch (error) {
+      console.error("Failed to fetch tasks:", error);
+      set({ error, isLoadingTasks: false });
+    }
   },
 }));
 
