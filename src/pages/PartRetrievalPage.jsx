@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Download, Share2 } from 'lucide-react';
 import { executeTaskAPI } from '@/api/taskAPI';
 import { uploadFileAPI } from '@/api/fileAPI.js';
 import ChatInput from '@/components/ChatInput.jsx';
 import useConversationStore from '@/store/conversationStore';
+import ConversationDisplay from '@/components/ConversationDisplay.jsx'; // 导入新组件
 import {
   Select,
   SelectContent,
@@ -14,14 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select.jsx";
 
-const UserMessage = ({ content }) => (
-  <div className="flex justify-end my-4">
-    <div className="bg-purple-600 text-white rounded-lg p-3 max-w-lg">
-      {content}
-    </div>
-  </div>
-);
-
+// PartCard 和 ConversationSelector 保持不变
 const PartCard = ({ part }) => (
   <div className="bg-white rounded-lg shadow-md overflow-hidden">
     {part.isLoading ? (
@@ -40,22 +33,6 @@ const PartCard = ({ part }) => (
       <div className="flex space-x-1">
         <Button variant="ghost" size="icon"><Download className="h-4 w-4" /></Button>
         <Button variant="ghost" size="icon"><Share2 className="h-4 w-4" /></Button>
-      </div>
-    </div>
-  </div>
-);
-
-const AiMessage = ({ message }) => (
-  <div className="flex items-start my-4">
-    <Avatar className="mr-4">
-      <AvatarFallback>O</AvatarFallback>
-    </Avatar>
-    <div className="flex-1">
-      <p className="mb-4">{message.text}</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {message.parts.map(part => (
-          <PartCard key={part.id} part={part} />
-        ))}
       </div>
     </div>
   </div>
@@ -87,12 +64,11 @@ const ConversationSelector = () => {
 };
 
 const PartRetrievalPage = () => {
-  const [messages, setMessages] = useState([]);
+  // 从 store 获取消息列表和加载状态
+  const { messages, addMessage, isLoadingMessages, activeConversationId, createTask, activeTaskId } = useConversationStore();
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [currentTaskId, setCurrentTaskId] = useState(null);
-  const { activeConversationId, createTask } = useConversationStore();
 
   const handleSendMessage = async () => {
     if ((!inputValue.trim() && !selectedFile) || isLoading || !activeConversationId) return;
@@ -113,34 +89,36 @@ const PartRetrievalPage = () => {
         }
       } catch (error) {
         console.error("File upload failed:", error);
-        const errorMessage = { role: 'ai', text: '抱歉，文件上传失败，请稍后再试。', parts: [] };
-        setMessages(prev => [...prev, errorMessage]);
+        addMessage({ role: 'ai', content: '抱歉，文件上传失败，请稍后再试。' });
         setIsLoading(false);
         return;
       }
     }
 
     const userMessage = { role: 'user', content: userMessageContent };
-    setMessages(prev => [...prev, userMessage]);
+    addMessage(userMessage);
+
+    // 清理输入框
     setInputValue('');
     setSelectedFile(null);
 
     try {
-      let taskIdToUse = currentTaskId;
+      let taskIdToUse = activeTaskId;
+      const taskType = 'retrieval'; // 当前页面的任务类型
 
       // 1. 如果没有当前任务ID，则创建一个新任务
       if (!taskIdToUse) {
         const newTask = await createTask({
           conversation_id: activeConversationId,
-          task_type: 'retrieval',
+          task_type: taskType,
           details: { query: inputValue, fileName: selectedFile?.name }
         });
         if (!newTask) throw new Error("Task creation failed");
         taskIdToUse = newTask.task_id;
-        setCurrentTaskId(taskIdToUse); // 保存新任务ID
+        // setActiveTaskId(taskIdToUse); // store action 会自动设置
       }
 
-      // 2. 执行统一的任务API
+      // 2. 执行任务API (后端现在会自动保存用户消息)
       const response = await executeTaskAPI({
         task_type: 'retrieval',
         query: inputValue, 
@@ -150,13 +128,18 @@ const PartRetrievalPage = () => {
       });
       const allParts = response.data.parts;
       
-      const aiMessagePlaceholder = {
+      // 模拟AI回复
+      const aiMessage = {
         role: 'ai',
-        text: '以下是为您找到的零件替换方案：',
-        parts: [],
+        content: `已为您找到 ${allParts.length} 个相关零件。`, // 这是一个示例回复
       };
-      setMessages(prev => [...prev, aiMessagePlaceholder]);
+      addMessage(aiMessage);
+      
+      setIsLoading(false);
 
+      // TODO: 这里的 streamParts 逻辑需要被重构以适应新的 store 模式
+      // 暂时禁用以避免错误
+      /*
       const streamParts = (index) => {
         if (index >= allParts.length) {
           setIsLoading(false);
@@ -183,19 +166,20 @@ const PartRetrievalPage = () => {
         setTimeout(() => streamParts(index + 1), 300); // 控制卡片出现速度
       };
 
-      streamParts(0);
+      // streamParts(0);
+      */
 
     } catch (error) {
       console.error("Failed to retrieve parts:", error);
-      const errorMessage = {
-        role: 'ai',
-        text: '抱歉，检索零件时出错，请稍后再试。',
-        parts: [],
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      addMessage({ role: 'ai', content: '抱歉，检索零件时出错，请稍后再试。' });
       setIsLoading(false);
     }
   };
+
+  // 如果正在从历史记录加载消息，则显示加载状态
+  if (isLoadingMessages) {
+    return <div className="flex items-center justify-center h-full">正在加载对话记录...</div>;
+  }
 
   // 初始视图
   if (messages.length === 0) {
@@ -222,18 +206,9 @@ const PartRetrievalPage = () => {
 
   // 对话视图
   return (
-    <div className="flex flex-col h-full bg-white p-8">
-      <div className="flex-1 overflow-y-auto">
-        {messages.map((msg, index) => (
-          msg.role === 'user' 
-            ? <UserMessage key={index} content={msg.content} />
-            : <AiMessage key={index} message={msg} />
-        ))}
-        {isLoading && messages[messages.length - 1]?.role === 'ai' && messages[messages.length - 1]?.parts.length === 0 && (
-          <p className="text-center text-gray-500">正在检索中...</p>
-        )}
-      </div>
-      <div className="mt-auto">
+    <div className="flex flex-col h-full bg-white">
+      <ConversationDisplay messages={messages} isLoading={isLoadingMessages} />
+      <div className="mt-auto p-8">
         <ChatInput
           inputValue={inputValue}
           onInputChange={(e) => setInputValue(e.target.value)}

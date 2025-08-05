@@ -5,10 +5,10 @@ import { Download, Share2, Code } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import ChatInput from '@/components/ChatInput.jsx';
 import { executeTaskAPI } from '@/api/taskAPI';
-import { uploadFileAPI } from '@/api/fileAPI.js'; // 假设这个API也需要更新
+import { uploadFileAPI } from '@/api/fileAPI.js';
 import useUserStore from '@/store/userStore';
 import useConversationStore from '@/store/conversationStore';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import ConversationDisplay from '@/components/ConversationDisplay.jsx';
 
 const SuggestionButton = ({ text }) => (
   <Button variant="outline" className="rounded-full bg-gray-50 text-gray-600">
@@ -16,65 +16,23 @@ const SuggestionButton = ({ text }) => (
   </Button>
 );
 
-const UserMessage = ({ content }) => (
-  <div className="flex justify-end my-4">
-    <div className="bg-purple-600 text-white rounded-lg p-3 max-w-lg">
-      {content}
-    </div>
-  </div>
-);
-
-const AiMessage = ({ message }) => {
-  const { content, metadata } = message;
-
-  return (
-    <div className="flex items-start my-4">
-      <Avatar className="mr-4">
-        <AvatarFallback>O</AvatarFallback>
-      </Avatar>
-      <div className="bg-gray-100 rounded-lg p-4 max-w-2xl prose">
-        <ReactMarkdown>{content || ''}</ReactMarkdown>
-        {metadata && (
-          <div className="mt-4">
-            {metadata.preview_image && (
-              <img 
-                src={metadata.preview_image} 
-                alt="Model Preview" 
-                className="rounded-lg shadow-md max-w-full"
-              />
-            )}
-            <div className="flex items-center justify-end space-x-2 mt-2">
-              {metadata.code_file && (
-                <Button as="a" href={metadata.code_file} target="_blank" rel="noopener noreferrer" variant="ghost" size="icon" title="Download Code">
-                  <Code className="h-4 w-4" />
-                </Button>
-              )}
-              {metadata.cad_file && (
-                <Button as="a" href={metadata.cad_file} target="_blank" rel="noopener noreferrer" variant="ghost" size="icon" title="Download CAD File">
-                  <Download className="h-4 w-4" />
-                </Button>
-              )}
-              <Button variant="ghost" size="icon" title="Share">
-                <Share2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-
 const GeometricModelingPage = () => {
   const [inputValue, setInputValue] = useState('');
-  const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [currentTaskId, setCurrentTaskId] = useState(null);
   const { user } = useUserStore();
-  const { ensureConversation, createTask } = useConversationStore();
-  const { fetchHistory } = useOutletContext(); // 这个现在是 fetchConversations
+  const {
+    messages,
+    addMessage,
+    updateLastMessageContent,
+    replaceLastMessage,
+    isLoadingMessages,
+    activeTaskId,
+    setActiveTaskId,
+    ensureConversation,
+    createTask,
+  } = useConversationStore();
+  const { fetchHistory } = useOutletContext();
 
   // 当 activeConversationId 变为 null 时，重置页面状态
   useEffect(() => {
@@ -89,12 +47,12 @@ const GeometricModelingPage = () => {
     let filesForRequest = [];
 
     const userMessage = { role: 'user', content: userMessageContent };
-    setMessages(prev => [...prev, userMessage]);
+    addMessage(userMessage);
     setInputValue('');
     
     setIsStreaming(true);
     const aiMessagePlaceholder = { role: 'ai', content: '', metadata: null };
-    setMessages(prev => [...prev, aiMessagePlaceholder]);
+    addMessage(aiMessagePlaceholder);
 
     // 文件上传逻辑 (如果需要)
     if (selectedFile) {
@@ -116,7 +74,7 @@ const GeometricModelingPage = () => {
       return;
     }
 
-    let taskIdToUse = currentTaskId;
+    let taskIdToUse = activeTaskId;
 
     // 2. 如果没有当前任务ID，则创建一个新任务
     if (!taskIdToUse) {
@@ -131,7 +89,7 @@ const GeometricModelingPage = () => {
         return;
       }
       taskIdToUse = newTask.task_id;
-      setCurrentTaskId(taskIdToUse); // 保存新任务ID
+      // setActiveTaskId(taskIdToUse); // createTask action 已经设置了
     }
 
     // 3. 准备并执行任务
@@ -153,30 +111,24 @@ const GeometricModelingPage = () => {
           // 可以在这里更新UI，例如显示任务ID
         },
         text_chunk: (data) => {
-          setMessages(prev => {
-            const newMessages = [...prev];
-            const lastMessage = newMessages[newMessages.length - 1];
-            lastMessage.content += data.text;
-            return newMessages;
-          });
+          updateLastMessageContent(data.text);
         },
         message_end: (data) => {
-          setMessages(prev => {
-            const newMessages = [...prev];
-            const lastMessage = newMessages[newMessages.length - 1];
-            lastMessage.content = data.answer; // 确保最终文本是完整的
-            lastMessage.metadata = data.metadata;
-            return newMessages;
-          });
+          const finalMessage = {
+            role: 'ai',
+            content: data.answer,
+            metadata: data.metadata,
+          };
+          replaceLastMessage(finalMessage);
         },
       },
       onError: (error) => {
         console.error("SSE error:", error);
-        setMessages(prev => {
-          const newMessages = [...prev];
-          newMessages[newMessages.length - 1].content = "抱歉，请求出错，请稍后再试。";
-          return newMessages;
-        });
+        const errorMessage = {
+          role: 'ai',
+          content: "抱歉，请求出错，请稍后再试。",
+        };
+        replaceLastMessage(errorMessage);
         setIsStreaming(false);
       },
       onClose: () => {
@@ -218,15 +170,9 @@ const GeometricModelingPage = () => {
 
   // 对话视图
   return (
-    <div className="flex flex-col h-full bg-white p-8">
-      <div className="flex-1 overflow-y-auto">
-        {messages.map((msg, index) => (
-          msg.role === 'user' 
-            ? <UserMessage key={index} content={msg.content} />
-            : <AiMessage key={index} message={msg} />
-        ))}
-      </div>
-      <div className="mt-auto">
+    <div className="flex flex-col h-full bg-white">
+      <ConversationDisplay messages={messages} isLoading={isLoadingMessages} />
+      <div className="mt-auto p-8">
         <ChatInput
           inputValue={inputValue}
           onInputChange={(e) => setInputValue(e.target.value)}

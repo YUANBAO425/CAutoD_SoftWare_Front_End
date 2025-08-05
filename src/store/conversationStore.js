@@ -1,16 +1,43 @@
 import { create } from "zustand";
 import { getConversationsAPI } from "../api/dashboardAPI";
 import { createTaskAPI } from "../api/taskAPI";
-import { createConversationAPI, getHistoryAPI } from "../api/conversationAPI";
+import {
+  createConversationAPI,
+  getHistoryAPI,
+  getTaskHistoryAPI,
+} from "../api/conversationAPI";
 
 const useConversationStore = create((set, get) => ({
   conversations: [],
-  tasks: [], // 用于存储任务列表
+  tasks: [], // 用于存储任务历史列表
+  messages: [], // 用于存储当前激活任务的消息
   activeConversationId: null,
   activeTaskId: null,
   isLoading: false,
   isLoadingTasks: false, // 用于任务列表加载状态
+  isLoadingMessages: false, // 用于消息加载状态
   error: null,
+
+  addMessage: (message) =>
+    set((state) => ({ messages: [...state.messages, message] })),
+
+  updateLastMessageContent: (chunk) =>
+    set((state) => {
+      const newMessages = [...state.messages];
+      if (newMessages.length > 0) {
+        newMessages[newMessages.length - 1].content += chunk;
+      }
+      return { messages: newMessages };
+    }),
+
+  replaceLastMessage: (message) =>
+    set((state) => {
+      const newMessages = [...state.messages];
+      if (newMessages.length > 0) {
+        newMessages[newMessages.length - 1] = message;
+      }
+      return { messages: newMessages };
+    }),
 
   setActiveConversationId: (conversationId) => {
     set({ activeConversationId: conversationId, activeTaskId: null }); // 切换对话时清空任务
@@ -81,14 +108,6 @@ const useConversationStore = create((set, get) => ({
     try {
       const conversations = await getConversationsAPI(userId);
       set({ conversations: conversations || [], isLoading: false });
-      // 如果当前没有激活的对话，可以默认选择第一个
-      if (
-        !get().activeConversationId &&
-        conversations &&
-        conversations.length > 0
-      ) {
-        set({ activeConversationId: conversations[0].conversation_id });
-      }
     } catch (error) {
       console.error("Failed to fetch conversations:", error);
       set({ error, isLoading: false });
@@ -112,6 +131,24 @@ const useConversationStore = create((set, get) => ({
     } catch (error) {
       console.error("Failed to fetch tasks:", error);
       set({ error, isLoadingTasks: false });
+    }
+  },
+
+  fetchMessagesForTask: async (taskId, conversationId) => {
+    if (!taskId) return;
+    set({ isLoadingMessages: true, error: null });
+    try {
+      const response = await getTaskHistoryAPI(taskId);
+      // 假设后端返回的数据结构是 { message: [...] }
+      set({
+        messages: response.message || [],
+        activeTaskId: taskId,
+        activeConversationId: conversationId, // 新增
+        isLoadingMessages: false,
+      });
+    } catch (error) {
+      console.error(`Failed to fetch messages for task ${taskId}:`, error);
+      set({ error, isLoadingMessages: false });
     }
   },
 }));

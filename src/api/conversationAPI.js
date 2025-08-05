@@ -43,3 +43,13 @@ export const getHistoryAPI = (userId) => {
   // 后端接口需要 user_id 作为查询参数
   return get(`/chat/history?user_id=${userId}`);
 };
+
+/**
+ * 获取指定任务的完整对话历史
+ * @param {string} taskId - 任务的ID
+ * @returns {Promise<object>} - 返回包含消息历史的对象
+ */
+export const getTaskHistoryAPI = (taskId) => {
+  // 后端接口需要 task_id 作为查询参数
+  return get(`/chat/task?task_id=${taskId}`);
+};

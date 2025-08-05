@@ -33,6 +33,15 @@ const Sidebar = () => {
   const { user, logout } = useUserStore();
   const { conversations, activeConversationId, setActiveConversationId, startNewConversation } = useConversationStore();
 
+  // 智能排序，确保激活的会话始终可见
+  const getDisplayConversations = () => {
+    if (!conversations || conversations.length === 0) return [];
+    const activeConv = conversations.find(c => c.conversation_id === activeConversationId);
+    const otherConvs = conversations.filter(c => c.conversation_id !== activeConversationId);
+    return activeConv ? [activeConv, ...otherConvs] : conversations;
+  };
+  const displayConversations = getDisplayConversations();
+
   // 格式化日期
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -45,17 +54,17 @@ const Sidebar = () => {
       <NavItem to="/create-project" icon={Plus} text="创建项目" />
       <nav className="mt-6 flex-1">
         <NavItem to="/geometry" icon={MessageSquare} text="几何建模" onClick={startNewConversation} />
-        <NavItem to="/parts" icon={Search} text="零件检索" />
-        <NavItem to="/design-optimization" icon={Settings2} text="设计优化" />
-        <NavItem to="/software-interface" icon={Code} text="软件界面" />
-        <NavItem to="/tasks" icon={ListChecks} text="任务列表" />
+        <NavItem to="/parts" icon={Search} text="零件检索" onClick={startNewConversation} />
+        <NavItem to="/design-optimization" icon={Settings2} text="设计优化" onClick={startNewConversation} />
+        <NavItem to="/software-interface" icon={Code} text="软件界面" onClick={startNewConversation} />
+        <NavItem to="/tasks" icon={ListChecks} text="任务列表" onClick={() => setActiveConversationId(null)} />
       </nav>
       <div className="mt-auto">
         <div className="mb-4">
           <h3 className="text-sm text-gray-400 mb-2 px-2">历史记录</h3>
-          {conversations.length > 0 ? (
+          {displayConversations.length > 0 ? (
             <>
-              {conversations.slice(0, 3).map(item => (
+              {displayConversations.slice(0, 3).map(item => (
                 <button 
                   key={item.conversation_id} 
                   onClick={() => setActiveConversationId(item.conversation_id)}
