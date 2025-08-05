@@ -1,4 +1,4 @@
-import { get, post } from "./index";
+import { get, post, del } from "./index";
 import useUserStore from "../store/userStore";
 
 /**
@@ -52,4 +52,22 @@ export const getHistoryAPI = (userId) => {
 export const getTaskHistoryAPI = (taskId) => {
   // 后端接口需要 task_id 作为查询参数
   return get(`/chat/task?task_id=${taskId}`);
+};
+
+/**
+ * 删除指定任务及其所有对话消息
+ * @param {string} taskId - 任务的ID
+ * @returns {Promise<object>}
+ */
+export const deleteTaskAndMessagesAPI = (taskId) => {
+  return del(`/chat/message/${taskId}`);
+};
+
+/**
+ * 仅删除指定任务的对话历史
+ * @param {string} taskId - 任务的ID
+ * @returns {Promise<object>}
+ */
+export const deleteHistoryAPI = (taskId) => {
+  return del(`/chat/history/${taskId}`);
 };

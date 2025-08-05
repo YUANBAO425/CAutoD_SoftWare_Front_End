@@ -151,6 +151,18 @@ const useConversationStore = create((set, get) => ({
       set({ error, isLoadingMessages: false });
     }
   },
+
+  removeTask: (taskId) =>
+    set((state) => ({
+      tasks: state.tasks.filter((task) => task.task_id !== taskId),
+    })),
+
+  updateTask: (taskId, updatedData) =>
+    set((state) => ({
+      tasks: state.tasks.map((task) =>
+        task.task_id === taskId ? { ...task, ...updatedData } : task
+      ),
+    })),
 }));
 
 export default useConversationStore;
