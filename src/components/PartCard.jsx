@@ -9,7 +9,8 @@ const PartCard = ({ part }) => {
       const fileName = part.fileName || part.name; 
       const response = await downloadFileAPI(fileName);
       
-      const url = window.URL.createObjectURL(new Blob([response]));
+      // response 本身就是一个 Blob，不需要再次包装
+      const url = window.URL.createObjectURL(response);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', fileName);

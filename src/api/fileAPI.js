@@ -1,4 +1,5 @@
 import { post } from "./index.js";
+import instance from "./index.js"; // 直接导入 axios 实例
 import useUserStore from "../store/userStore.js";
 
 /**
@@ -28,14 +29,20 @@ export function uploadFileAPI(file) {
  * 入参：fileName (string) - 需要下载的文件名
  * 返回参数：文件流
  * url地址：/api/download_file/{file_name}
- * 请求方式：POST
+ * 请求方式：GET
  */
-export function downloadFileAPI(fileName) {
-  const token = useUserStore.getState().token;
-  const formData = new FormData();
-  formData.append("authorization", `Bearer ${token}`);
+export async function downloadFileAPI(fileName) {
+  try {
+    // 由于响应拦截器直接返回 response.data，
+    // 对于 responseType: "blob" 的请求，这里直接收到的就是 Blob 对象。
+    const blobData = await instance.get(`/download_file/${fileName}`, {
+      responseType: "blob", // 关键：告诉 axios 期望一个二进制响应
+    });
 
-  // 注意：axios 的 post 返回的是 JSON，下载文件通常需要特殊处理
-  // 这里假设 axios 实例配置了 responseType: 'blob' 或类似设置
-  return post(`/download_file/${fileName}`, formData);
+    // 直接返回获取到的 Blob 数据
+    return blobData;
+  } catch (error) {
+    console.error("Download file API failed:", error);
+    throw error; // 重新抛出错误以便上层处理
+  }
 }

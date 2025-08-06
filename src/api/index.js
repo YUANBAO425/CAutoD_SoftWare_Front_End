@@ -34,8 +34,8 @@ instance.interceptors.response.use(
 );
 
 // 封装请求方法
-export const get = (url, params) => instance.get(url, { params });
-export const post = (url, data) => instance.post(url, data);
+export const get = (url, config) => instance.get(url, config);
+export const post = (url, data, config) => instance.post(url, data, config);
 export const put = (url, data) => instance.put(url, data);
 export const del = (url) => instance.delete(url);
 
