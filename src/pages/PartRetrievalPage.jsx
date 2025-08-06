@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, Share2 } from 'lucide-react';
 import { executeTaskAPI } from '@/api/taskAPI';
-import { uploadFileAPI } from '@/api/fileAPI.js';
+import { uploadFileAPI, downloadFileAPI } from '@/api/fileAPI.js';
 import ChatInput from '@/components/ChatInput.jsx';
 import useConversationStore from '@/store/conversationStore';
 import ConversationDisplay from '@/components/ConversationDisplay.jsx'; // 导入新组件
@@ -13,30 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select.jsx";
-
-// PartCard 和 ConversationSelector 保持不变
-const PartCard = ({ part }) => (
-  <div className="bg-white rounded-lg shadow-md overflow-hidden">
-    {part.isLoading ? (
-      <div className="w-full h-40 bg-gray-200 flex items-center justify-center">
-        <div className="flex space-x-2">
-          <div className="h-3 w-3 bg-gray-500 rounded-full animate-pulse [animation-delay:-0.3s]"></div>
-          <div className="h-3 w-3 bg-gray-500 rounded-full animate-pulse [animation-delay:-0.15s]"></div>
-          <div className="h-3 w-3 bg-gray-500 rounded-full animate-pulse"></div>
-        </div>
-      </div>
-    ) : (
-      <img src={part.imageUrl} alt={part.name} className="w-full h-40 object-cover" />
-    )}
-    <div className="p-4 flex items-center justify-between">
-      <span className="text-sm font-medium">{part.name}</span>
-      <div className="flex space-x-1">
-        <Button variant="ghost" size="icon"><Download className="h-4 w-4" /></Button>
-        <Button variant="ghost" size="icon"><Share2 className="h-4 w-4" /></Button>
-      </div>
-    </div>
-  </div>
-);
 
 const ConversationSelector = () => {
   const { conversations, activeConversationId, setActiveConversationId } = useConversationStore();
@@ -81,11 +57,11 @@ const PartRetrievalPage = () => {
     if (selectedFile) {
       try {
         const uploadResponse = await uploadFileAPI(selectedFile);
-        if (uploadResponse.code === 200) {
-          fileUrl = uploadResponse.data.url;
+        if (uploadResponse && uploadResponse.path) {
+          fileUrl = uploadResponse.path;
           userMessageContent += `\n(已上传文件: ${selectedFile.name})`;
         } else {
-          throw new Error('File upload failed');
+          throw new Error('File upload failed: Invalid response from server');
         }
       } catch (error) {
         console.error("File upload failed:", error);
@@ -118,56 +94,61 @@ const PartRetrievalPage = () => {
         // setActiveTaskId(taskIdToUse); // store action 会自动设置
       }
 
-      // 2. 执行任务API (后端现在会自动保存用户消息)
-      const response = await executeTaskAPI({
+      // 2. 执行任务API (流式)
+      executeTaskAPI({
         task_type: 'retrieval',
-        query: inputValue, 
-        file_url: fileUrl, 
+        query: inputValue,
+        file_url: fileUrl,
         conversation_id: activeConversationId,
-        task_id: taskIdToUse // 使用保存的或新创建的任务ID
-      });
-      const allParts = response.data.parts;
-      
-      // 模拟AI回复
-      const aiMessage = {
-        role: 'ai',
-        content: `已为您找到 ${allParts.length} 个相关零件。`, // 这是一个示例回复
-      };
-      addMessage(aiMessage);
-      
-      setIsLoading(false);
+        task_id: taskIdToUse,
+        response_mode: "streaming",
+        onMessage: {
+          conversation_info: (data) => {
+            // setActiveTaskId(data.task_id); // store action 会自动设置
+            // 可以在这里添加一个空的AI消息作为占位符
+            addMessage({ role: 'ai', content: '', parts: [] });
+          },
+          text_chunk: (data) => {
+            // 更新最后一条AI消息的内容
+            useConversationStore.getState().updateLastMessageContent(data.text);
+          },
+          part_chunk: (data) => {
+            const { part } = data;
+            const currentState = useConversationStore.getState();
+            const lastMessage = currentState.messages[currentState.messages.length - 1];
 
-      // TODO: 这里的 streamParts 逻辑需要被重构以适应新的 store 模式
-      // 暂时禁用以避免错误
-      /*
-      const streamParts = (index) => {
-        if (index >= allParts.length) {
+            let updatedMessage;
+            if (lastMessage && lastMessage.role === 'ai') {
+              updatedMessage = {
+                ...lastMessage,
+                parts: [...(lastMessage.parts || []), part],
+              };
+            } else {
+              updatedMessage = { role: 'ai', content: '', parts: [part] };
+            }
+            
+            currentState.replaceLastMessage(updatedMessage);
+          },
+          message_end: (data) => {
+            console.log("Stream finished:", data);
+            setIsLoading(false);
+          },
+          error: (error) => {
+            console.error("SSE Error:", error);
+            addMessage({ role: 'ai', content: '抱歉，检索零件时发生流式错误。' });
+            setIsLoading(false);
+          },
+        },
+        onClose: () => {
           setIsLoading(false);
-          return;
+          console.log("SSE Connection closed.");
+        },
+        onError: (error) => {
+           console.error("SSE Connection Error:", error);
+           addMessage({ role: 'ai', content: '抱歉，连接服务器时出错。' });
+           setIsLoading(false);
         }
-        
-        const partPlaceholder = { ...allParts[index], isLoading: true };
-        setMessages(prev => {
-          const newMessages = [...prev];
-          newMessages[newMessages.length - 1].parts.push(partPlaceholder);
-          return newMessages;
-        });
-
-        setTimeout(() => {
-          setMessages(prev => {
-            const newMessages = [...prev];
-            const lastAiMessage = newMessages[newMessages.length - 1];
-            const targetPart = lastAiMessage.parts[index];
-            targetPart.isLoading = false;
-            return newMessages;
-          });
-        }, 1500); // 模拟图片生成延迟
-
-        setTimeout(() => streamParts(index + 1), 300); // 控制卡片出现速度
-      };
-
-      // streamParts(0);
-      */
+      });
 
     } catch (error) {
       console.error("Failed to retrieve parts:", error);

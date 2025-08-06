@@ -66,7 +66,12 @@ const DesignOptimizationPage = () => {
     if (selectedFile) {
       try {
         const uploadResponse = await uploadFileAPI(selectedFile);
-        fileUrl = uploadResponse.data.url;
+        if (uploadResponse && uploadResponse.path) {
+          fileUrl = uploadResponse.path;
+          userMessageContent += `\n(已上传文件: ${selectedFile.name})`;
+        } else {
+          throw new Error('File upload failed: Invalid response from server');
+        }
       } catch (error) {
         console.error("File upload failed:", error);
         addMessage({ role: 'ai', content: '抱歉，文件上传失败。' });

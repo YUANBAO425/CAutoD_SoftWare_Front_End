@@ -15,7 +15,7 @@ export function uploadFileAPI(file) {
   formData.append("file", file);
   formData.append("authorization", `Bearer ${token}`);
 
-  return post("/api/upload_file", formData, {
+  return post("/upload_file", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -37,5 +37,5 @@ export function downloadFileAPI(fileName) {
 
   // 注意：axios 的 post 返回的是 JSON，下载文件通常需要特殊处理
   // 这里假设 axios 实例配置了 responseType: 'blob' 或类似设置
-  return post(`/api/download_file/${fileName}`, formData);
+  return post(`/download_file/${fileName}`, formData);
 }
