@@ -19,25 +19,59 @@ const useConversationStore = create((set, get) => ({
   error: null,
 
   addMessage: (message) =>
-    set((state) => ({ messages: [...state.messages, message] })),
+    set((state) => ({
+      messages: [
+        ...state.messages,
+        // 为每条消息添加一个唯一的ID，用于React的key
+        { ...message, id: `msg-${Date.now()}-${Math.random()}` },
+      ],
+    })),
 
-  updateLastMessageContent: (chunk) =>
+  // --- 最终重构：使用函数式 set 保证状态更新的原子性 ---
+  updateLastAiMessage: (update) => {
     set((state) => {
-      const newMessages = [...state.messages];
-      if (newMessages.length > 0) {
-        newMessages[newMessages.length - 1].content += chunk;
+      if (
+        state.messages.length === 0 ||
+        state.messages[state.messages.length - 1].role !== "assistant"
+      ) {
+        return state;
       }
-      return { messages: newMessages };
-    }),
 
-  replaceLastMessage: (message) =>
-    set((state) => {
-      const newMessages = [...state.messages];
-      if (newMessages.length > 0) {
-        newMessages[newMessages.length - 1] = message;
-      }
+      const newMessages = state.messages.map((msg, index) => {
+        // 只修改最后一条消息
+        if (index !== state.messages.length - 1) {
+          return msg;
+        }
+
+        let updatedMessage = { ...msg };
+
+        // 1. 处理文本块
+        if (update.textChunk !== undefined) {
+          updatedMessage.content =
+            (updatedMessage.content || "") + update.textChunk;
+        }
+
+        // 2. 处理图片块
+        if (update.image !== undefined) {
+          const newImagePart = { type: "image", ...update.image };
+          updatedMessage.parts = [
+            ...(updatedMessage.parts || []),
+            newImagePart,
+          ];
+        }
+
+        // 3. 处理结束信号
+        if (update.finalData !== undefined) {
+          updatedMessage.content = update.finalData.answer;
+          updatedMessage.metadata = update.finalData.metadata;
+        }
+
+        return updatedMessage;
+      });
+
       return { messages: newMessages };
-    }),
+    });
+  },
 
   setActiveConversationId: (conversationId) => {
     set({ activeConversationId: conversationId, activeTaskId: null }); // 切换对话时清空任务
@@ -46,7 +80,11 @@ const useConversationStore = create((set, get) => ({
   setActiveTaskId: (taskId) => set({ activeTaskId: taskId }),
 
   startNewConversation: () =>
-    set({ activeConversationId: null, activeTaskId: null, messages: [] }),
+    set({
+      activeConversationId: null,
+      activeTaskId: null,
+      messages: [],
+    }),
 
   ensureConversation: async (title = "新对话") => {
     let activeId = get().activeConversationId;
@@ -139,11 +177,12 @@ const useConversationStore = create((set, get) => ({
     set({ isLoadingMessages: true, error: null });
     try {
       const response = await getTaskHistoryAPI(taskId);
-      // 假设后端返回的数据结构是 { message: [...] }
+      const messages = response.message || [];
+
       set({
-        messages: response.message || [],
+        messages: messages, // 直接设置消息，不再处理全局 images
         activeTaskId: taskId,
-        activeConversationId: conversationId, // 新增
+        activeConversationId: conversationId,
         isLoadingMessages: false,
       });
     } catch (error) {

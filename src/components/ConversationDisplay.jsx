@@ -1,6 +1,8 @@
 import React from 'react';
+import useConversationStore from '@/store/conversationStore'; // 导入 store
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import PartCard from './PartCard'; // 导入 PartCard
+import ProtectedImage from './ProtectedImage'; // 导入 ProtectedImage 组件
 import { Button } from './ui/button';
 import { Download, Code, Image as ImageIcon } from 'lucide-react';
 import { downloadFileAPI } from '@/api/fileAPI'; // 导入下载API
@@ -15,6 +17,9 @@ const UserMessage = ({ content }) => (
 
 const AiMessage = ({ message }) => {
   const { content, parts, metadata } = message;
+
+  // 图片数据现在直接来源于 message.parts
+  const imagesToDisplay = parts?.filter(p => p.type === 'image') || [];
 
   const handleDownload = async (fileName) => {
     if (!fileName) return;
@@ -44,16 +49,35 @@ const AiMessage = ({ message }) => {
       <Avatar className="mr-4">
         <AvatarFallback>AI</AvatarFallback>
       </Avatar>
-      <div className="bg-gray-100 rounded-lg p-3 max-w-lg w-full">
+      <div className="bg-gray-100 rounded-lg p-3 w-3/4"> {/* 修改宽度为 3/4 */}
         {/* 渲染文本内容 */}
         <div className="break-words">{content}</div>
 
-        {/* 渲染零件卡片 */}
+        {/* 渲染图片 */}
+        {imagesToDisplay && imagesToDisplay.length > 0 && (
+          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+            {imagesToDisplay.map((image, idx) => (
+              <div key={idx} className="border rounded-lg p-2">
+                <ProtectedImage 
+                  src={`http://127.0.0.1:8080${image.imageUrl}`}
+                  alt={image.altText || 'Generated image'} 
+                  className="w-full h-auto rounded cursor-pointer"
+                  onClick={() => handleDownload(image.fileName)}
+                />
+                <p className="text-sm text-center mt-1">{image.altText || image.fileName}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 渲染零件卡片 (过滤掉已通过 image 状态渲染的图片) */}
         {parts && parts.length > 0 && (
           <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-            {parts.map((part, idx) => (
-              <PartCard key={idx} part={part} />
-            ))}
+            {parts
+              .filter((part) => part.type !== 'image')
+              .map((part, idx) => (
+                <PartCard key={idx} part={part} />
+              ))}
           </div>
         )}
 
@@ -86,11 +110,11 @@ const ConversationDisplay = ({ messages, isLoading }) => {
 
   return (
     <div className="flex-1 overflow-y-auto p-8">
-      {messages.map((msg, index) =>
+      {messages.map((msg) =>
         msg.role === 'user' ? (
-          <UserMessage key={index} content={msg.content} />
+          <UserMessage key={msg.id || msg.timestamp} content={msg.content} />
         ) : (
-          <AiMessage key={index} message={msg} />
+          <AiMessage key={msg.id || msg.timestamp} message={msg} />
         )
       )}
     </div>

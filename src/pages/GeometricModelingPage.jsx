@@ -24,8 +24,7 @@ const GeometricModelingPage = () => {
   const {
     messages,
     addMessage,
-    updateLastMessageContent,
-    replaceLastMessage,
+    updateLastAiMessage, // 使用新的统一 action
     isLoadingMessages,
     activeTaskId,
     setActiveTaskId,
@@ -51,7 +50,7 @@ const GeometricModelingPage = () => {
     setInputValue('');
     
     setIsStreaming(true);
-    const aiMessagePlaceholder = { role: 'ai', content: '', metadata: null };
+    const aiMessagePlaceholder = { role: 'assistant', content: '', metadata: null };
     addMessage(aiMessagePlaceholder);
 
     // 文件上传逻辑 (如果需要)
@@ -111,24 +110,23 @@ const GeometricModelingPage = () => {
           // 可以在这里更新UI，例如显示任务ID
         },
         text_chunk: (data) => {
-          updateLastMessageContent(data.text);
+          updateLastAiMessage({ textChunk: data.text });
+        },
+        image_chunk: (data) => {
+          updateLastAiMessage({ image: data });
         },
         message_end: (data) => {
-          const finalMessage = {
-            role: 'ai',
-            content: data.answer,
-            metadata: data.metadata,
-          };
-          replaceLastMessage(finalMessage);
+          updateLastAiMessage({ finalData: data });
         },
       },
       onError: (error) => {
         console.error("SSE error:", error);
-        const errorMessage = {
-          role: 'ai',
-          content: "抱歉，请求出错，请稍后再试。",
-        };
-        replaceLastMessage(errorMessage);
+        updateLastAiMessage({
+          finalData: {
+            answer: "抱歉，请求出错，请稍后再试。",
+            metadata: {},
+          },
+        });
         setIsStreaming(false);
       },
       onClose: () => {

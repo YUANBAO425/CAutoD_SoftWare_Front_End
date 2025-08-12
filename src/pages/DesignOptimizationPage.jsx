@@ -46,8 +46,7 @@ const DesignOptimizationPage = () => {
     activeConversationId,
     activeTaskId,
     createTask,
-    replaceLastMessage,
-    updateLastMessageContent,
+    updateLastAiMessage, // 使用新的统一 action
   } = useConversationStore();
   const [inputValue, setInputValue] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -80,7 +79,7 @@ const DesignOptimizationPage = () => {
       }
     }
     
-    addMessage({ role: 'ai', content: '' }); // AI 回复占位符
+    addMessage({ role: 'assistant', content: '' }); // AI 回复占位符
 
     try {
       let taskIdToUse = activeTaskId;
@@ -108,16 +107,37 @@ const DesignOptimizationPage = () => {
         ...requestData,
         response_mode: "streaming",
         onMessage: {
-          text_chunk: (data) => updateLastMessageContent(data.text),
-          message_end: (data) => replaceLastMessage({ role: 'ai', content: data.answer, metadata: data.metadata }),
+          text_chunk: (data) => {
+            updateLastAiMessage({ textChunk: data.text });
+          },
+          image_chunk: (data) => {
+            updateLastAiMessage({ image: data });
+          },
+          message_end: (data) => {
+            updateLastAiMessage({ finalData: data });
+          },
         },
-        onError: () => replaceLastMessage({ role: 'ai', content: "抱歉，请求出错。" }),
+        onError: (error) => {
+          console.error("SSE error:", error);
+          updateLastAiMessage({
+            finalData: {
+              answer: "抱歉，请求出错，请稍后再试。",
+              metadata: {},
+            },
+          });
+          setIsStreaming(false);
+        },
         onClose: () => setIsStreaming(false),
       });
 
     } catch (error) {
       console.error("Failed to start optimization task:", error);
-      replaceLastMessage({ role: 'ai', content: '抱歉，启动优化任务时出现错误。' });
+      updateLastAiMessage({
+        finalData: {
+          answer: "抱歉，启动优化任务时出现错误。",
+          metadata: {},
+        },
+      });
       setIsStreaming(false);
     }
   };
