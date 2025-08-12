@@ -89,9 +89,9 @@ const Sidebar = () => {
           <DropdownMenuTrigger asChild>
             <div className="flex items-center p-2 rounded-lg hover:bg-blue-800 cursor-pointer">
               <Avatar className="h-8 w-8 mr-3">
-                <AvatarFallback>{user?.email?.[0].toUpperCase() || 'U'}</AvatarFallback>
+                <AvatarFallback>{user?.username?.[0].toUpperCase() || 'U'}</AvatarFallback>
               </Avatar>
-              <span className="flex-1 truncate">{user?.email || '用户'}</span>
+              <span className="flex-1 truncate">{user?.username || '用户'}</span>
               <ChevronDown className="h-5 w-5" />
             </div>
           </DropdownMenuTrigger>
@@ -100,7 +100,7 @@ const Sidebar = () => {
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">用户信息</p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  ID: {user?.user_id || 'N/A'}
+                  昵称: {user?.username || 'N/A'}
                 </p>
                 <p className="text-xs leading-none text-muted-foreground truncate">
                   邮箱: {user?.email || 'N/A'}

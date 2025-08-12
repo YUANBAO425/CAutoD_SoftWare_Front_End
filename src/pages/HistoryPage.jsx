@@ -4,6 +4,15 @@ import { Input } from '@/components/ui/input';
 import { Trash2, Search, ChevronDown, ChevronRight } from 'lucide-react';
 import useConversationStore from '../store/conversationStore';
 import { getConversationDetailsAPI } from '../api/conversationAPI';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 const TaskItem = ({ task }) => (
   <div className="pl-10 pr-4 py-2 bg-gray-50 border-t">
@@ -75,13 +84,22 @@ const HistoryItem = ({ item, onDelete }) => {
 
 const HistoryPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const { conversations, isLoading, error } = useConversationStore();
+  const { conversations, isLoading, error, deleteConversation } = useConversationStore();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedConversationId, setSelectedConversationId] = useState(null);
 
-  // 注意：删除功能现在应该在 store 中实现，以确保状态一致性
-  const handleDelete = (conversation_id) => {
-    console.log("删除功能待实现: ", conversation_id);
-    // 在 store 中实现删除逻辑:
-    // deleteConversation(conversation_id);
+
+  const openDeleteDialog = (conversationId) => {
+    setSelectedConversationId(conversationId);
+    setIsDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedConversationId) {
+      deleteConversation(selectedConversationId);
+    }
+    setIsDialogOpen(false);
+    setSelectedConversationId(null);
   };
 
   const filteredHistory = (conversations || []).filter(item =>
@@ -123,12 +141,27 @@ const HistoryPage = () => {
       <div className="space-y-4">
         {filteredHistory.length > 0 ? (
           filteredHistory.map(item => (
-            <HistoryItem key={item.conversation_id} item={item} onDelete={handleDelete} />
+            <HistoryItem key={item.conversation_id} item={item} onDelete={() => openDeleteDialog(item.conversation_id)} />
           ))
         ) : (
           <p className="text-center text-gray-500">没有找到匹配的对话。</p>
         )}
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认删除</DialogTitle>
+            <DialogDescription>
+              此操作将永久删除该会话及其包含的所有任务和消息历史。此操作无法撤销。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>确认删除</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -3,6 +3,7 @@ import { getConversationsAPI } from "../api/dashboardAPI";
 import { createTaskAPI } from "../api/taskAPI";
 import {
   createConversationAPI,
+  deleteConversationAPI,
   getHistoryAPI,
   getTaskHistoryAPI,
 } from "../api/conversationAPI";
@@ -202,6 +203,21 @@ const useConversationStore = create((set, get) => ({
         task.task_id === taskId ? { ...task, ...updatedData } : task
       ),
     })),
+
+  deleteConversation: async (conversationId) => {
+    try {
+      await deleteConversationAPI(conversationId);
+      set((state) => ({
+        conversations: state.conversations.filter(
+          (c) => c.conversation_id !== conversationId
+        ),
+      }));
+    } catch (error) {
+      console.error("Failed to delete conversation:", error);
+      // Optionally, set an error state to inform the user
+      set({ error: "Failed to delete conversation." });
+    }
+  },
 }));
 
 export default useConversationStore;

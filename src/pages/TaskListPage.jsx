@@ -104,17 +104,17 @@ const TaskListPage = () => {
                 onClick={() => handleTaskClick(task)}
               >
                 <div className="flex items-center justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{task.last_message || '暂无消息'}</p>
-                    <div className="flex items-center text-sm text-gray-500 mt-1">
-                      <span className="mr-4">任务ID: {task.task_id}</span>
-                      <span>类型: {task.task_type}</span>
-                    </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{task.last_message || '暂无消息'}</p>
+                  <div className="flex items-center text-sm text-gray-500 mt-1">
+                    <span className="mr-4">任务ID: {task.task_id}</span>
+                    <span>类型: {task.task_type}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm text-gray-500">{task.last_time}</p>
-                    <Button
-                      variant="ghost"
+                </div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-gray-500">{task.last_time}</p>
+                  <Button
+                    variant="ghost"
                       size="icon"
                       onClick={(e) => openDeleteDialog(task, e)}
                       className="text-gray-400 hover:text-red-500"

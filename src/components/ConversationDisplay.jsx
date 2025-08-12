@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import useConversationStore from '@/store/conversationStore'; // 导入 store
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import PartCard from './PartCard'; // 导入 PartCard
 import ProtectedImage from './ProtectedImage'; // 导入 ProtectedImage 组件
 import { Button } from './ui/button';
-import { Download, Code, Image as ImageIcon } from 'lucide-react';
+import { Download, Code, Image as ImageIcon, Clipboard } from 'lucide-react';
 import { downloadFileAPI } from '@/api/fileAPI'; // 导入下载API
+import ReactMarkdown from 'react-markdown'; // 导入 ReactMarkdown
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'; // 导入高亮组件
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'; // 导入深色主题
 
 const UserMessage = ({ content }) => (
   <div className="flex justify-end my-4">
@@ -14,6 +17,41 @@ const UserMessage = ({ content }) => (
     </div>
   </div>
 );
+
+const CodeBlock = ({ language, children }) => {
+  const [isCopied, setIsCopied] = useState(false);
+  const textToCopy = String(children).replace(/\n$/, '');
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="relative group my-4">
+      <button
+        onClick={handleCopy}
+        className="absolute top-2 right-2 z-10 p-1 rounded-md bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+        aria-label="Copy code"
+      >
+        {isCopied ? (
+          <span className="text-xs px-1">Copied!</span>
+        ) : (
+          <Clipboard className="h-4 w-4" />
+        )}
+      </button>
+      <SyntaxHighlighter
+        style={vscDarkPlus}
+        language={language}
+        PreTag="div"
+      >
+        {textToCopy}
+      </SyntaxHighlighter>
+    </div>
+  );
+};
 
 const AiMessage = ({ message }) => {
   const { content, parts, metadata } = message;
@@ -51,7 +89,26 @@ const AiMessage = ({ message }) => {
       </Avatar>
       <div className="bg-gray-100 rounded-lg p-3 w-3/4"> {/* 修改宽度为 3/4 */}
         {/* 渲染文本内容 */}
-        <div className="break-words">{content}</div>
+        <div className="prose max-w-none break-words">
+          <ReactMarkdown
+            components={{
+              code({ node, inline, className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className || '');
+                return !inline && match ? (
+                  <CodeBlock language={match[1]} {...props}>
+                    {children}
+                  </CodeBlock>
+                ) : (
+                  <code className={className} {...props}>
+                    {children}
+                  </code>
+                );
+              },
+            }}
+          >
+            {content}
+          </ReactMarkdown>
+        </div>
 
         {/* 渲染图片 */}
         {imagesToDisplay && imagesToDisplay.length > 0 && (

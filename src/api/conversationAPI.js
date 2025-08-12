@@ -71,3 +71,12 @@ export const deleteTaskAndMessagesAPI = (taskId) => {
 export const deleteHistoryAPI = (taskId) => {
   return del(`/chat/history/${taskId}`);
 };
+
+/**
+ * 删除指定的会话
+ * @param {string} conversationId - 会话的ID
+ * @returns {Promise<object>}
+ */
+export const deleteConversationAPI = (conversationId) => {
+  return del(`/conversation/${conversationId}`);
+};
