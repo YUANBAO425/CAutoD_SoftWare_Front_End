@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { executeTaskAPI } from '@/api/taskAPI';
 import { uploadFileAPI } from '@/api/fileAPI.js';
-import ChatInput from '@/components/ChatInput.jsx';
+import { Upload } from 'lucide-react';
 import useConversationStore from '@/store/conversationStore';
 import ConversationDisplay from '@/components/ConversationDisplay.jsx';
 import {
@@ -38,6 +38,53 @@ const ConversationSelector = () => {
   );
 };
 
+const WorkflowGuide = () => (
+  <div className="text-left max-w-2xl mx-auto bg-green-50 p-4 rounded-lg border border-green-200 mb-8">
+    <h2 className="text-lg font-semibold text-green-800 mb-2">第二步：设计优化</h2>
+    <ol className="list-decimal list-inside text-gray-700 space-y-1">
+      <li>请先在【几何建模】页面完成初始模型的设计和导出。</li>
+      <li>上传您在 SolidWorks 中处理过的 <strong>.sldprt</strong> 文件。</li>
+      <li>点击下方的“开始优化”按钮，系统将对上传的模型进行分析与优化。</li>
+      <li>系统将执行优化，您可以根据结果进行多轮迭代，直到满意为止。</li>
+    </ol>
+  </div>
+);
+
+const FileUploadComponent = ({ onFileSelect, onStart, selectedFile, isStreaming, disabled }) => {
+  const fileInputRef = React.useRef(null);
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      onFileSelect(file);
+    }
+  };
+
+  const handleButtonClick = () => {
+    fileInputRef.current.click();
+  };
+
+  return (
+    <div className="flex flex-col items-center space-y-4 w-full max-w-xs mx-auto">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        accept=".sldprt"
+      />
+      <Button onClick={handleButtonClick} disabled={isStreaming || disabled} variant="outline" className="w-full">
+        <Upload className="mr-2 h-4 w-4" />
+        {selectedFile ? `已选择: ${selectedFile.name}` : '选择 .sldprt 文件'}
+      </Button>
+      <Button onClick={onStart} disabled={!selectedFile || isStreaming || disabled} size="lg" className="w-full">
+        开始优化
+      </Button>
+    </div>
+  );
+};
+
+
 const DesignOptimizationPage = () => {
   const {
     messages,
@@ -48,35 +95,30 @@ const DesignOptimizationPage = () => {
     createTask,
     updateLastAiMessage, // 使用新的统一 action
   } = useConversationStore();
-  const [inputValue, setInputValue] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
 
-  const handleSendMessage = async () => {
-    if ((!inputValue.trim() && !selectedFile) || isStreaming || !activeConversationId) return;
+  const handleStartOptimization = async () => {
+    if (!selectedFile || isStreaming || !activeConversationId) return;
 
-    let userMessageContent = inputValue;
+    const userMessageContent = `已上传文件进行优化: ${selectedFile.name}`;
     let fileUrl = null;
 
     addMessage({ role: 'user', content: userMessageContent });
-    setInputValue('');
     setIsStreaming(true);
 
-    if (selectedFile) {
-      try {
-        const uploadResponse = await uploadFileAPI(selectedFile);
-        if (uploadResponse && uploadResponse.path) {
-          fileUrl = uploadResponse.path;
-          userMessageContent += `\n(已上传文件: ${selectedFile.name})`;
-        } else {
-          throw new Error('File upload failed: Invalid response from server');
-        }
-      } catch (error) {
-        console.error("File upload failed:", error);
-        addMessage({ role: 'ai', content: '抱歉，文件上传失败。' });
-        setIsStreaming(false);
-        return;
+    try {
+      const uploadResponse = await uploadFileAPI(selectedFile);
+      if (uploadResponse && uploadResponse.path) {
+        fileUrl = uploadResponse.path;
+      } else {
+        throw new Error('File upload failed: Invalid response from server');
       }
+    } catch (error) {
+      console.error("File upload failed:", error);
+      addMessage({ role: 'assistant', content: '抱歉，文件上传失败。' });
+      setIsStreaming(false);
+      return;
     }
     
     addMessage({ role: 'assistant', content: '' }); // AI 回复占位符
@@ -84,12 +126,13 @@ const DesignOptimizationPage = () => {
     try {
       let taskIdToUse = activeTaskId;
       const taskType = 'optimize';
+      const query = `请对上传的文件 ${selectedFile.name} 进行设计优化。`;
 
       if (!taskIdToUse) {
         const newTask = await createTask({
           conversation_id: activeConversationId,
           task_type: taskType,
-          details: { query: userMessageContent, fileName: selectedFile?.name }
+          details: { query: query, fileName: selectedFile?.name }
         });
         if (!newTask) throw new Error("Task creation failed");
         taskIdToUse = newTask.task_id;
@@ -97,7 +140,7 @@ const DesignOptimizationPage = () => {
 
       const requestData = {
         task_type: taskType,
-        query: userMessageContent,
+        query: query,
         file_url: fileUrl,
         conversation_id: activeConversationId,
         task_id: taskIdToUse,
@@ -146,17 +189,14 @@ const DesignOptimizationPage = () => {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-white pb-40">
         <div className="w-full max-w-2xl text-center">
-          <h1 className="text-4xl font-bold mb-8">需要我为您优化什么？</h1>
+          <h1 className="text-4xl font-bold mb-8">上传文件以开始优化</h1>
+          <WorkflowGuide />
           <ConversationSelector />
-          <ChatInput
-            inputValue={inputValue}
-            onInputChange={(e) => setInputValue(e.target.value)}
-            onSendMessage={handleSendMessage}
-            isStreaming={isStreaming}
-            placeholder="例如：轻量化这个机械臂，要求满足材料应力约束"
-            selectedFile={selectedFile}
+          <FileUploadComponent
             onFileSelect={setSelectedFile}
-            isInitialView={true}
+            onStart={handleStartOptimization}
+            selectedFile={selectedFile}
+            isStreaming={isStreaming}
             disabled={!activeConversationId}
           />
         </div>
@@ -167,15 +207,13 @@ const DesignOptimizationPage = () => {
   return (
     <div className="flex flex-col h-full bg-white">
       <ConversationDisplay messages={messages} isLoading={isLoadingMessages} />
-      <div className="mt-auto p-8">
-        <ChatInput
-          inputValue={inputValue}
-          onInputChange={(e) => setInputValue(e.target.value)}
-          onSendMessage={handleSendMessage}
-          isStreaming={isStreaming}
-          placeholder="继续提问或优化..."
-          selectedFile={selectedFile}
+      <div className="mt-auto p-4 border-t">
+        <FileUploadComponent
           onFileSelect={setSelectedFile}
+          onStart={handleStartOptimization}
+          selectedFile={selectedFile}
+          isStreaming={isStreaming}
+          disabled={!activeConversationId || isStreaming}
         />
       </div>
     </div>
