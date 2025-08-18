@@ -109,25 +109,11 @@ const PartRetrievalPage = () => {
             addMessage({ role: 'ai', content: '', parts: [] });
           },
           text_chunk: (data) => {
-            // 更新最后一条AI消息的内容
-            useConversationStore.getState().updateLastMessageContent(data.text);
+            useConversationStore.getState().updateLastAiMessage({ textChunk: data.text });
           },
           part_chunk: (data) => {
-            const { part } = data;
-            const currentState = useConversationStore.getState();
-            const lastMessage = currentState.messages[currentState.messages.length - 1];
-
-            let updatedMessage;
-            if (lastMessage && lastMessage.role === 'ai') {
-              updatedMessage = {
-                ...lastMessage,
-                parts: [...(lastMessage.parts || []), part],
-              };
-            } else {
-              updatedMessage = { role: 'ai', content: '', parts: [part] };
-            }
-            
-            currentState.replaceLastMessage(updatedMessage);
+            // 现在 sse 函数直接传递 part 对象，所以 data 就是 part
+            useConversationStore.getState().updateLastAiMessage({ part: data });
           },
           message_end: (data) => {
             console.log("Stream finished:", data);

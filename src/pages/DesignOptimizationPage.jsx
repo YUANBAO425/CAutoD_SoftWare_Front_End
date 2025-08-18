@@ -101,33 +101,17 @@ const DesignOptimizationPage = () => {
   const handleStartOptimization = async () => {
     if (!selectedFile || isStreaming || !activeConversationId) return;
 
-    const userMessageContent = `已上传文件进行优化: ${selectedFile.name}`;
-    let fileUrl = null;
-
-    addMessage({ role: 'user', content: userMessageContent });
     setIsStreaming(true);
-
-    try {
-      const uploadResponse = await uploadFileAPI(selectedFile);
-      if (uploadResponse && uploadResponse.path) {
-        fileUrl = uploadResponse.path;
-      } else {
-        throw new Error('File upload failed: Invalid response from server');
-      }
-    } catch (error) {
-      console.error("File upload failed:", error);
-      addMessage({ role: 'assistant', content: '抱歉，文件上传失败。' });
-      setIsStreaming(false);
-      return;
-    }
-    
+    const userMessageContent = `已上传文件进行优化: ${selectedFile.name}`;
+    addMessage({ role: 'user', content: userMessageContent });
     addMessage({ role: 'assistant', content: '' }); // AI 回复占位符
 
-    try {
-      let taskIdToUse = activeTaskId;
-      const taskType = 'optimize';
-      const query = `请对上传的文件 ${selectedFile.name} 进行设计优化。`;
+    const taskType = 'optimize';
+    const query = `请对上传的文件 ${selectedFile.name} 进行设计优化。`;
+    let taskIdToUse = activeTaskId;
 
+    // 1. 如果没有当前任务ID，则创建一个新任务
+    try {
       if (!taskIdToUse) {
         const newTask = await createTask({
           conversation_id: activeConversationId,
@@ -137,7 +121,35 @@ const DesignOptimizationPage = () => {
         if (!newTask) throw new Error("Task creation failed");
         taskIdToUse = newTask.task_id;
       }
+    } catch (error) {
+        console.error("Failed to create task:", error);
+        updateLastAiMessage({
+            finalData: { answer: "抱歉，创建任务时出现错误。", metadata: {} },
+        });
+        setIsStreaming(false);
+        return;
+    }
 
+    // 2. 上传文件，并附带会话和任务ID
+    let fileUrl = null;
+    try {
+      const uploadResponse = await uploadFileAPI(selectedFile, activeConversationId, taskIdToUse);
+      if (uploadResponse && uploadResponse.path) {
+        fileUrl = uploadResponse.path;
+      } else {
+        throw new Error('File upload failed: Invalid response from server');
+      }
+    } catch (error) {
+      console.error("File upload failed:", error);
+      updateLastAiMessage({
+        finalData: { answer: "抱歉，文件上传失败。", metadata: {} },
+      });
+      setIsStreaming(false);
+      return;
+    }
+    
+    // 3. 执行任务
+    try {
       const requestData = {
         task_type: taskType,
         query: query,

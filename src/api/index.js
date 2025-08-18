@@ -100,12 +100,21 @@ export const sse = (
           if (eventName && data && onMessage && onMessage[eventName]) {
             try {
               const parsedData = JSON.parse(data);
-              onMessage[eventName](parsedData);
+              // 智能提取数据：如果解析后的对象中有一个与事件名匹配的键，
+              // 则只传递该键的值，否则传递整个对象。
+              // 例如 event: part_chunk, data: {"part": {...}} -> onMessage.part_chunk({...})
+              const eventPayload =
+                parsedData[eventName] !== undefined
+                  ? parsedData[eventName]
+                  : parsedData;
+              onMessage[eventName](eventPayload);
             } catch (e) {
               console.error(
                 `Failed to parse SSE message data for event ${eventName}:`,
                 e
               );
+              // 如果解析失败，尝试将原始数据作为文本传递
+              onMessage[eventName](data);
             }
           }
           boundary = buffer.indexOf("\n\n");

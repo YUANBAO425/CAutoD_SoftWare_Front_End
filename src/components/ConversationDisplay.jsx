@@ -127,11 +127,11 @@ const AiMessage = ({ message }) => {
           </div>
         )}
 
-        {/* 渲染零件卡片 (过滤掉已通过 image 状态渲染的图片) */}
+        {/* 渲染零件卡片 */}
         {parts && parts.length > 0 && (
           <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
             {parts
-              .filter((part) => part.type !== 'image')
+              .filter((part) => part.type === 'part') // 明确只渲染 type 为 'part' 的组件
               .map((part, idx) => (
                 <PartCard key={idx} part={part} />
               ))}

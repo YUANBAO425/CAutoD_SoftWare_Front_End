@@ -4,16 +4,21 @@ import useUserStore from "../store/userStore.js";
 
 /**
  * 上传文件
- * 功能描述：将单个文件上传到服务器
- * 入参：file (File object) - 需要上传的文件
+ * 功能描述：将单个文件上传到服务器，并附带会话和任务ID
+ * 入参：
+ *   - file (File object): 需要上传的文件
+ *   - conversation_id (string): 关联的会话ID
+ *   - task_id (number): 关联的任务ID
  * 返回参数：包含文件URL或ID的对象
  * url地址：/api/upload_file
  * 请求方式：POST (multipart/form-data)
  */
-export function uploadFileAPI(file) {
+export function uploadFileAPI(file, conversation_id, task_id) {
   const token = useUserStore.getState().token;
   const formData = new FormData();
   formData.append("file", file);
+  formData.append("conversation_id", conversation_id);
+  formData.append("task_id", task_id);
   formData.append("authorization", `Bearer ${token}`);
 
   return post("/upload_file", formData, {
