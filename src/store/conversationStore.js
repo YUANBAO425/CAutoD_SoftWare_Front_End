@@ -41,10 +41,9 @@ const useConversationStore = create((set, get) => ({
   // --- 最终重构：使用函数式 set 保证状态更新的原子性 ---
   updateLastAiMessage: (update) => {
     set((state) => {
-      if (
-        state.messages.length === 0 ||
-        state.messages[state.messages.length - 1].role !== "assistant"
-      ) {
+      const lastMessage = state.messages[state.messages.length - 1];
+
+      if (state.messages.length === 0 || lastMessage.role !== "assistant") {
         return state;
       }
 
@@ -73,7 +72,9 @@ const useConversationStore = create((set, get) => ({
 
         // 新增：处理零件块
         if (update.part !== undefined) {
-          const newPart = { type: "part", ...update.part };
+          // 确保我们提取的是真正的 part 数据，而不是整个 SSE 事件对象
+          const actualPartData = update.part.part || update.part; // 如果是 { part: {...} } 结构，则取 part 属性，否则直接使用
+          const newPart = { type: "part", ...actualPartData };
           updatedMessage.parts = [...(updatedMessage.parts || []), newPart];
         }
 

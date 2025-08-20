@@ -104,7 +104,7 @@ const DesignOptimizationPage = () => {
     setIsStreaming(true);
     const userMessageContent = `已上传文件进行优化: ${selectedFile.name}`;
     addMessage({ role: 'user', content: userMessageContent });
-    addMessage({ role: 'assistant', content: '' }); // AI 回复占位符
+    addMessage({ role: 'assistant', content: '', task_type: 'optimize' }); // AI 回复占位符，并带上任务类型
 
     const taskType = 'optimize';
     const query = `请对上传的文件 ${selectedFile.name} 进行设计优化。`;

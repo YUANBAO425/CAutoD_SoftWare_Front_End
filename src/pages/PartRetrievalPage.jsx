@@ -104,23 +104,18 @@ const PartRetrievalPage = () => {
         response_mode: "streaming",
         onMessage: {
           conversation_info: (data) => {
-            // setActiveTaskId(data.task_id); // store action 会自动设置
-            // 可以在这里添加一个空的AI消息作为占位符
-            addMessage({ role: 'ai', content: '', parts: [] });
+            addMessage({ role: 'assistant', content: '', parts: [] });
           },
           text_chunk: (data) => {
             useConversationStore.getState().updateLastAiMessage({ textChunk: data.text });
           },
           part_chunk: (data) => {
-            // 现在 sse 函数直接传递 part 对象，所以 data 就是 part
             useConversationStore.getState().updateLastAiMessage({ part: data });
           },
           message_end: (data) => {
-            console.log("Stream finished:", data);
             setIsLoading(false);
           },
           error: (error) => {
-            console.error("SSE Error:", error);
             addMessage({ role: 'ai', content: '抱歉，检索零件时发生流式错误。' });
             setIsLoading(false);
           },

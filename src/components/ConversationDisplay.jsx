@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import useConversationStore from '@/store/conversationStore'; // 导入 store
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import PartCard from './PartCard'; // 导入 PartCard
 import ProtectedImage from './ProtectedImage'; // 导入 ProtectedImage 组件
 import { Button } from './ui/button';
 import { Download, Code, Image as ImageIcon, Clipboard } from 'lucide-react';
 import { downloadFileAPI } from '@/api/fileAPI'; // 导入下载API
 import ReactMarkdown from 'react-markdown'; // 导入 ReactMarkdown
+import rehypeRaw from 'rehype-raw'; // 导入 rehype-raw
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'; // 导入高亮组件
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'; // 导入深色主题
 
@@ -53,21 +55,77 @@ const CodeBlock = ({ language, children }) => {
   );
 };
 
+const OptimizationLogRenderer = ({ content }) => {
+  const parseLog = (logContent) => {
+    if (!logContent) return [];
+    const blocks = logContent.split(/(?=开始优化|发送参数|优化完成|优化结果详细信息)/).filter(Boolean);
+
+    return blocks.map((block, index) => {
+      if (block.includes('仿真执行失败') || block.includes('仿真评估错误')) {
+        return { type: 'ERROR', content: block, id: `error-${index}` };
+      }
+      if (block.startsWith('开始优化')) {
+        return { type: 'START', content: block, id: `start-${index}` };
+      }
+      if (block.startsWith('发送参数')) {
+        const titleMatch = block.match(/发送参数 \((.+?)\)/);
+        return { type: 'ITERATION', title: titleMatch ? titleMatch[1] : '迭代', content: block, id: `iter-${index}` };
+      }
+      if (block.startsWith('优化完成')) {
+        return { type: 'END', content: block, id: `end-${index}` };
+      }
+      if (block.startsWith('优化结果详细信息')) {
+        return { type: 'RESULT', content: block, id: `result-${index}` };
+      }
+      // Default block for initial info
+      return { type: 'INFO', content: block, id: `info-${index}` };
+    });
+  };
+
+  const logEvents = parseLog(content);
+
+  return (
+    <div className="space-y-4">
+      {logEvents.map(event => {
+        const isError = event.type === 'ERROR';
+        return (
+          <Card key={event.id} className={isError ? 'border-red-500' : ''}>
+            <CardHeader>
+              <CardTitle className={isError ? 'text-red-500' : ''}>
+                {event.type === 'ITERATION' && `迭代详情 (${event.title})`}
+                {event.type === 'ERROR' && '错误'}
+                {event.type === 'START' && '开始优化'}
+                {event.type === 'END' && '优化完成'}
+                {event.type === 'RESULT' && '最终结果'}
+                {event.type === 'INFO' && '初始化信息'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <pre className="whitespace-pre-wrap font-mono text-sm bg-gray-50 p-4 rounded-md">
+                <code>{event.content.trim()}</code>
+              </pre>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+};
+
+
 const AiMessage = ({ message }) => {
   const { content, parts, metadata } = message;
 
-  // 图片数据现在直接来源于 message.parts
+  const partsToRender = parts?.filter(p => p.type === 'part') || [];
   const imagesToDisplay = parts?.filter(p => p.type === 'image') || [];
+
+  // Use the new task_type property for a reliable check
+  const isOptimizationLog = message.task_type === 'optimize';
 
   const handleDownload = async (fileName) => {
     if (!fileName) return;
     try {
       const response = await downloadFileAPI(fileName);
-      console.log('Download Blob Type:', response.type); // Debug log
-      console.log('Download Filename:', fileName); // Debug log
-      
-      // 创建一个 Blob URL 并触发下载
-      // response 本身就是一个 Blob，不需要再次包装
       const url = window.URL.createObjectURL(response);
       const link = document.createElement('a');
       link.href = url;
@@ -75,10 +133,9 @@ const AiMessage = ({ message }) => {
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url); // 清理
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Download failed:", error);
-      // TODO: 添加面向用户的错误提示
     }
   };
 
@@ -87,36 +144,41 @@ const AiMessage = ({ message }) => {
       <Avatar className="mr-4">
         <AvatarFallback>AI</AvatarFallback>
       </Avatar>
-      <div className="bg-gray-100 rounded-lg p-3 w-3/4"> {/* 修改宽度为 3/4 */}
-        {/* 渲染文本内容 */}
-        <div className="prose max-w-none break-words">
-          <ReactMarkdown
-            components={{
-              code({ node, inline, className, children, ...props }) {
-                const match = /language-(\w+)/.exec(className || '');
-                return !inline && match ? (
-                  <CodeBlock language={match[1]} {...props}>
-                    {children}
-                  </CodeBlock>
-                ) : (
-                  <code className={className} {...props}>
-                    {children}
-                  </code>
-                );
-              },
-            }}
-          >
-            {content}
-          </ReactMarkdown>
-        </div>
+      <div className="bg-gray-100 rounded-lg p-3 w-full max-w-4xl">
+        {isOptimizationLog ? (
+          <OptimizationLogRenderer content={content} />
+        ) : (
+          <div className="prose max-w-none break-words">
+            <ReactMarkdown
+              rehypePlugins={[rehypeRaw]}
+              components={{
+                code({ node, inline, className, children, ...props }) {
+                  const match = /language-(\w+)/.exec(className || '');
+                  return !inline && match ? (
+                    <CodeBlock language={match[1]} {...props}>
+                      {children}
+                    </CodeBlock>
+                  ) : (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  );
+                },
+              }}
+            >
+              {content}
+            </ReactMarkdown>
+          </div>
+        )}
 
-        {/* 渲染图片 */}
         {imagesToDisplay && imagesToDisplay.length > 0 && (
           <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
             {imagesToDisplay.map((image, idx) => (
               <div key={idx} className="border rounded-lg p-2">
                 <ProtectedImage 
-                  src={`http://127.0.0.1:8080${image.imageUrl}`}
+                  src={image.imageUrl.startsWith('http://') || image.imageUrl.startsWith('https://') 
+                    ? image.imageUrl 
+                    : `http://127.0.0.1:8080${image.imageUrl}`}
                   alt={image.altText || 'Generated image'} 
                   className="w-full h-auto rounded cursor-pointer"
                   onClick={() => handleDownload(image.fileName)}
@@ -127,18 +189,14 @@ const AiMessage = ({ message }) => {
           </div>
         )}
 
-        {/* 渲染零件卡片 */}
-        {parts && parts.length > 0 && (
+        {partsToRender && partsToRender.length > 0 && (
           <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-            {parts
-              .filter((part) => part.type === 'part') // 明确只渲染 type 为 'part' 的组件
-              .map((part, idx) => (
+            {partsToRender.map((part, idx) => (
                 <PartCard key={idx} part={part} />
               ))}
           </div>
         )}
 
-        {/* 渲染元数据 */}
         {metadata && (
           <div className="mt-4 border-t pt-2">
             <h4 className="text-sm font-semibold mb-2">生成文件:</h4>
@@ -149,9 +207,11 @@ const AiMessage = ({ message }) => {
               <Button variant="outline" size="sm" onClick={() => handleDownload(metadata.cad_file)}>
                   <Download className="mr-2 h-4 w-4" /> 下载CAD模型
               </Button>
-              <Button variant="outline" size="sm" onClick={() => handleDownload(metadata.code_file)}>
-                  <Code className="mr-2 h-4 w-4" /> 下载建模代码
-              </Button>
+              {!isOptimizationLog && (
+                <Button variant="outline" size="sm" onClick={() => handleDownload(metadata.code_file)}>
+                    <Code className="mr-2 h-4 w-4" /> 下载建模代码
+                </Button>
+              )}
             </div>
           </div>
         )}
