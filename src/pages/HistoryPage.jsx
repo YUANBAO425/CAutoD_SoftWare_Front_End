@@ -102,9 +102,9 @@ const HistoryPage = () => {
     setSelectedConversationId(null);
   };
 
-  const filteredHistory = (conversations || []).filter(item =>
-    item.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredHistory = (conversations || [])
+    .filter(item => item.title.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   if (isLoading) {
     return (

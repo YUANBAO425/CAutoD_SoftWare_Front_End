@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import useConversationStore from '@/store/conversationStore'; // 导入 store
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Download, Code, Image as ImageIcon, Clipboard } from 'lucide-react';
 import { downloadFileAPI } from '@/api/fileAPI'; // 导入下载API
 import ReactMarkdown from 'react-markdown'; // 导入 ReactMarkdown
 import rehypeRaw from 'rehype-raw'; // 导入 rehype-raw
+import remarkGfm from 'remark-gfm'; // 导入 remark-gfm 以支持 GFM (换行符等)
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'; // 导入高亮组件
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'; // 导入深色主题
 
@@ -113,14 +114,52 @@ const OptimizationLogRenderer = ({ content }) => {
 };
 
 
-const AiMessage = ({ message }) => {
+const AiMessage = ({ message, onParametersExtracted }) => {
   const { content, parts, metadata } = message;
 
   const partsToRender = parts?.filter(p => p.type === 'part') || [];
   const imagesToDisplay = parts?.filter(p => p.type === 'image') || [];
 
   // Use the new task_type property for a reliable check
-  const isOptimizationLog = message.task_type === 'optimize';
+  const isOptimizationLog = message.task_type === 'optimize' || (content && (content.includes('开始优化') || content.includes('发送参数')));
+
+  // 移除参数提取逻辑，现在由 DesignOptimizationPage 处理
+  // useEffect(() => {
+  //   if (isOptimizationLog && content && onParametersExtracted) {
+  //     console.log("AiMessage: Processing optimization log content for parameter extraction.");
+  //     console.log("AiMessage: Full content to parse:", content); // 打印完整内容
+
+  //     // 只有当内容包含完整的初始化信息时才尝试提取参数
+  //     if (content.includes('初始化完成，共获取到')) {
+  //       const extractedParams = [];
+  //       const paramRegex = /获取参数\d+[:：] (.+?) = (.+)/g; // 兼容半角和全角冒号
+        
+  //       let match;
+
+  //       // 提取参数名称和初始值
+  //       paramRegex.lastIndex = 0; // 重置正则表达式的lastIndex
+  //       while ((match = paramRegex.exec(content)) !== null) {
+  //         console.log("AiMessage: Param regex match:", match); // 打印每次匹配结果
+  //         extractedParams.push({
+  //           name: match[1].trim(),
+  //           initialValue: parseFloat(match[2]),
+  //           min: '', // 默认值
+  //           max: ''  // 默认值
+  //         });
+  //       }
+  //       console.log("AiMessage: Extracted initial parameters:", extractedParams);
+        
+  //       if (extractedParams.length > 0) {
+  //         console.log("AiMessage: Calling onParametersExtracted with:", extractedParams);
+  //         onParametersExtracted(extractedParams);
+  //       } else {
+  //         console.log("AiMessage: No optimizable parameters found in content after full initialization log.");
+  //       }
+  //     } else {
+  //       console.log("AiMessage: Full initialization log not yet received. Skipping parameter extraction.");
+  //     }
+  //   }
+  // }, [content, isOptimizationLog, onParametersExtracted]);
 
   const handleDownload = async (fileName) => {
     if (!fileName) return;
@@ -151,6 +190,7 @@ const AiMessage = ({ message }) => {
           <div className="prose max-w-none break-words">
             <ReactMarkdown
               rehypePlugins={[rehypeRaw]}
+              remarkPlugins={[remarkGfm]} // 添加 remarkGfm 插件
               components={{
                 code({ node, inline, className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || '');
@@ -166,7 +206,7 @@ const AiMessage = ({ message }) => {
                 },
               }}
             >
-              {content}
+              {content.replace(/\n/g, '  \n')}
             </ReactMarkdown>
           </div>
         )}
@@ -220,18 +260,18 @@ const AiMessage = ({ message }) => {
   );
 };
 
-const ConversationDisplay = ({ messages, isLoading }) => {
+const ConversationDisplay = ({ messages, isLoading, onParametersExtracted }) => {
   if (isLoading) {
     return <div className="flex items-center justify-center h-full">正在加载对话记录...</div>;
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-8">
+    <div className="flex-1 overflow-y-auto p-8 h-full">
       {messages.map((msg) =>
         msg.role === 'user' ? (
           <UserMessage key={msg.id || msg.timestamp} content={msg.content} />
         ) : (
-          <AiMessage key={msg.id || msg.timestamp} message={msg} />
+          <AiMessage key={msg.id || msg.timestamp} message={msg} onParametersExtracted={onParametersExtracted} />
         )
       )}
     </div>

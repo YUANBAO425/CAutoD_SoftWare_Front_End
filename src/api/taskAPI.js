@@ -49,3 +49,15 @@ export const executeTaskAPI = (executeData) => {
 export const getPendingTasksAPI = () => {
   return get("/tasks/pending");
 };
+
+/**
+ * 提交优化参数到后端
+ * @param {object} paramsData - 包含对话ID、任务ID和参数范围的对象
+ * @param {string} paramsData.conversation_id - 任务所属的对话ID
+ * @param {number} paramsData.task_id - 任务ID
+ * @param {object} paramsData.params - 优化参数及其范围，例如 {'param1': {'min': 0.1, 'max': 1.0}}
+ * @returns {Promise<object>} - 后端响应
+ */
+export const submitOptimizationParamsAPI = (paramsData) => {
+  return post("/tasks/optimize/submit-params", paramsData);
+};
