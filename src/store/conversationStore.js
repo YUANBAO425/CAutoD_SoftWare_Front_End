@@ -80,8 +80,24 @@ const useConversationStore = create((set, get) => ({
 
         // 3. 处理结束信号
         if (update.finalData !== undefined) {
+          console.log(
+            "conversationStore: Updating with finalData:",
+            update.finalData
+          );
           updatedMessage.content = update.finalData.answer;
           updatedMessage.metadata = update.finalData.metadata;
+          if (update.finalData.suggested_questions) {
+            updatedMessage.suggested_questions =
+              update.finalData.suggested_questions;
+            console.log(
+              "conversationStore: Successfully updated suggested_questions:",
+              updatedMessage.suggested_questions
+            );
+          } else {
+            console.log(
+              "conversationStore: No suggested_questions in finalData."
+            );
+          }
         }
 
         return updatedMessage;

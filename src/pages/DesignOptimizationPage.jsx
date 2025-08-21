@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { Toaster, toast } from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { executeTaskAPI, submitOptimizationParamsAPI } from '@/api/taskAPI';
@@ -18,6 +19,15 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "react-resizable-panels";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Clock } from 'lucide-react';
 
 const ConversationSelector = () => {
   const { conversations, activeConversationId, setActiveConversationId } = useConversationStore();
@@ -79,74 +89,114 @@ const FileUploadComponent = ({ onFileSelect, onStart, selectedFile, isStreaming,
         className="hidden"
         accept=".sldprt"
       />
-      <Button onClick={handleButtonClick} disabled={isStreaming || disabled} variant="outline" className="w-full">
+      <Button onClick={handleButtonClick} disabled={disabled} variant="outline" className="w-full">
         <Upload className="mr-2 h-4 w-4" />
         {selectedFile ? `已选择: ${selectedFile.name}` : '选择 .sldprt 文件'}
       </Button>
-      <Button onClick={onStart} disabled={!selectedFile || isStreaming || disabled} size="lg" className="w-full">
+      <Button onClick={onStart} disabled={!selectedFile || disabled} size="lg" className="w-full">
         开始优化
       </Button>
     </div>
   );
 };
 
-const ParameterForm = ({ params, onSubmit, isStreaming }) => {
-  const [ranges, setRanges] = useState(() => {
-    // 初始化 ranges 状态，使用从 AI 输出中提取的 initialValue 预填充 min/max
+const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted }) => {
+  const [extendedParams, setExtendedParams] = useState([]);
+
+  useEffect(() => {
+    const stressParam = {
+      name: 'permissible_stress',
+      initialValue: 235, // Default or fetched value
+      isStress: true,
+    };
+    // Ensure the stress param is only added once
+    if (!params.find(p => p.name === 'permissible_stress')) {
+      setExtendedParams([...params, stressParam]);
+    } else {
+      setExtendedParams(params);
+    }
+  }, [params]);
+
+  const [ranges, setRanges] = useState({});
+
+  useEffect(() => {
     const initialRanges = {};
-    params.forEach(param => {
+    extendedParams.forEach(param => {
       initialRanges[param.name] = {
         min: param.initialValue !== undefined && param.initialValue !== null ? param.initialValue : '',
         max: param.initialValue !== undefined && param.initialValue !== null ? param.initialValue : ''
       };
     });
-    return initialRanges;
-  });
+    setRanges(initialRanges);
+  }, [extendedParams]);
+  const [submissionStatus, setSubmissionStatus] = useState('idle');
 
   const handleRangeChange = (paramName, bound, value) => {
     setRanges(prev => ({
       ...prev,
-      [paramName]: {
-        ...prev[paramName],
-        [bound]: value
-      }
+      [paramName]: { ...prev[paramName], [bound]: value }
     }));
   };
 
-  const handleSubmit = () => {
-    // 在这里可以添加验证逻辑
-    onSubmit(ranges);
+  const handleSubmit = async () => {
+    setSubmissionStatus('loading');
+    try {
+      await onSubmit(ranges);
+      setSubmissionStatus('success');
+    } catch (error) {
+      setSubmissionStatus('error');
+    }
   };
 
+  const isInputDisabled = submissionStatus === 'loading' || submissionStatus === 'success';
+
   return (
-    <div className="w-full max-w-2xl mx-auto p-4 border rounded-lg"> {/* 进一步增加最大宽度 */}
+    <div className="w-full max-w-2xl mx-auto p-4 border rounded-lg">
       <h3 className="text-lg font-semibold mb-4">设置参数范围</h3>
-      <div className="grid grid-cols-[2fr_1fr_1fr] gap-4 mb-2"> {/* 添加表头 */}
-        <div></div> {/* 空白占位符 */}
+      <div className="grid grid-cols-[2fr_1fr_1fr] gap-4 mb-2">
+        <div></div>
         <div className="text-center text-sm font-medium text-gray-600">下界</div>
         <div className="text-center text-sm font-medium text-gray-600">上界</div>
       </div>
       <div className="space-y-4">
-        {params.map(param => (
+        {extendedParams.map(param => (
           <div key={param.name} className="grid grid-cols-[2fr_1fr_1fr] items-center gap-4">
             <label className="font-medium" title={param.name}>{param.name}</label>
-            <Input
-              type="number"
-              placeholder="下界"
-              value={ranges[param.name]?.min}
-              onChange={e => handleRangeChange(param.name, 'min', e.target.value)}
-            />
-            <Input
-              type="number"
-              placeholder="上界"
-              value={ranges[param.name]?.max}
-              onChange={e => handleRangeChange(param.name, 'max', e.target.value)}
-            />
+            {param.isStress ? (
+              <>
+                <Input
+                  type="number"
+                  placeholder="最大值"
+                  value={ranges[param.name]?.max}
+                  onChange={e => handleRangeChange(param.name, 'max', e.target.value)}
+                  disabled={isInputDisabled}
+                  className="col-span-1"
+                />
+                <div /> 
+              </>
+            ) : (
+              <>
+                <Input
+                  type="number"
+                  placeholder="下界"
+                  value={ranges[param.name]?.min}
+                  onChange={e => handleRangeChange(param.name, 'min', e.target.value)}
+                  disabled={isInputDisabled}
+                />
+                <Input
+                  type="number"
+                  placeholder="上界"
+                  value={ranges[param.name]?.max}
+                  onChange={e => handleRangeChange(param.name, 'max', e.target.value)}
+                  disabled={isInputDisabled}
+                />
+              </>
+            )}
           </div>
         ))}
       </div>
-      <Button onClick={handleSubmit} disabled={isStreaming} className="w-full mt-6">
-        提交范围并开始第二轮优化
+      <Button onClick={handleSubmit} disabled={isTaskRunning || params.length === 0 || isInputDisabled} className="w-full mt-6">
+        提交范围并继续进行优化
       </Button>
     </div>
   );
@@ -163,11 +213,14 @@ const DesignOptimizationPage = () => {
     createTask,
     updateLastAiMessage, // 使用新的统一 action
   } = useConversationStore();
+  const [isTaskRunning, setIsTaskRunning] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [optimizableParams, setOptimizableParams] = useState([]);
   const [paramRanges, setParamRanges] = useState({});
-  const [uploadedFileUrl, setUploadedFileUrl] = useState(null); // 新增状态用于保存上传文件的URL
+  const [uploadedFileUrl, setUploadedFileUrl] = useState(null);
+  const [isSecondRoundCompleted, setIsSecondRoundCompleted] = useState(false);
+  const [isQueueDialogOpen, setIsQueueDialogOpen] = useState(false);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -204,109 +257,26 @@ const DesignOptimizationPage = () => {
 
   const handleRangesSubmit = async (ranges) => {
     console.log("Submitted ranges:", ranges);
-    setParamRanges(ranges);
-    setIsStreaming(true); // 开始流式传输
-
-    addMessage({ role: 'user', content: `已提交参数范围: ${JSON.stringify(ranges)}，开始第二轮优化。` });
-    addMessage({ role: 'assistant', content: '', task_type: 'optimize' }); // AI 回复占位符
+    setIsSecondRoundCompleted(false);
 
     try {
-      const requestData = {
+      await submitOptimizationParamsAPI({
         conversation_id: activeConversationId,
         task_id: activeTaskId,
         params: ranges,
-      };
-
-      // 调用新的后端接口提交参数
-      const response = await submitOptimizationParamsAPI(requestData);
-      console.log("Optimization parameters submitted successfully:", response);
-
-      // 模拟后端返回的优化结果流
-      executeTaskAPI({
-        task_type: 'optimize', // 仍然是优化任务类型
-        query: `已提交参数范围: ${JSON.stringify(ranges)}，开始第二轮优化。`, // 传递参数作为查询
-        file_url: uploadedFileUrl, // 使用之前上传的文件URL
-        conversation_id: activeConversationId,
-        task_id: activeTaskId,
-        response_mode: "streaming",
-        onMessage: {
-          text_chunk: (data) => {
-            updateLastAiMessage({ textChunk: data.text });
-          },
-          image_chunk: (data) => {
-            updateLastAiMessage({ image: data });
-          },
-          message_end: (data) => {
-            updateLastAiMessage({ finalData: data });
-            // 在消息结束时提取参数 (如果需要进行多轮优化，这里可能需要再次提取)
-            if (data.answer && data.metadata && data.metadata.cad_file === "model.step" && data.metadata.code_file === "script.py") {
-              console.log("DesignOptimizationPage: message_end received. Full answer content (raw):", JSON.stringify(data.answer));
-              console.log("DesignOptimizationPage: message_end received. Full answer content (parsed):", data.answer);
-              const cleanedAnswer = data.answer.replace(/[^\x00-\x7F\u4e00-\u9fa5\n\r\t\s\w\d\.\-\+\=\:\：]/g, '');
-              console.log("DesignOptimizationPage: Cleaned answer content (raw):", JSON.stringify(cleanedAnswer));
-              console.log("DesignOptimizationPage: Cleaned answer content (parsed):", cleanedAnswer);
-              console.log("DesignOptimizationPage: Cleaned answer char codes:");
-              for (let i = 0; i < cleanedAnswer.length; i++) {
-                console.log(`Char: '${cleanedAnswer[i]}', Code: ${cleanedAnswer.charCodeAt(i)}`);
-              }
-              const extractedParams = [];
-              const paramRegex = /获取参数\d+[:：]\s*(.+?)\s*=\s*(.+)/g;
-              let match;
-              paramRegex.lastIndex = 0;
-              while ((match = paramRegex.exec(cleanedAnswer)) !== null) {
-                console.log("DesignOptimizationPage: Param regex match (from cleanedAnswer):", match);
-                const paramName = match[1].trim();
-                const paramValue = match[2].trim();
-                const initialValue = parseFloat(paramValue);
-                if (!isNaN(initialValue)) {
-                  extractedParams.push({
-                    name: paramName,
-                    initialValue: initialValue,
-                    min: '',
-                    max: ''
-                  });
-                } else {
-                  console.warn(`DesignOptimizationPage: Could not parse initialValue for param: ${paramName}, value: ${paramValue}`);
-                }
-              }
-              console.log("DesignOptimizationPage: Extracted parameters at message_end:", extractedParams);
-              if (extractedParams.length > 0) {
-                handleParametersExtracted(extractedParams);
-              } else {
-                console.log("DesignOptimizationPage: No optimizable parameters found in final answer content.");
-              }
-            }
-          },
-        },
-        onError: (error) => {
-          console.error("SSE error during second round optimization:", error);
-          updateLastAiMessage({
-            finalData: {
-              answer: "抱歉，第二轮优化请求出错，请稍后再试。",
-              metadata: {},
-            },
-          });
-          setIsStreaming(false);
-        },
-        onClose: () => setIsStreaming(false),
       });
-
+      setIsQueueDialogOpen(true); // Open the dialog on success
     } catch (error) {
       console.error("Failed to submit optimization parameters:", error);
-      updateLastAiMessage({
-        finalData: {
-          answer: "抱歉，提交优化参数失败。",
-          metadata: {},
-        },
-      });
-      setIsStreaming(false);
+      toast.error("提交参数失败，请重试。");
     }
   };
 
   const handleStartOptimization = async () => {
-    if (!selectedFile || isStreaming || !activeConversationId) return;
+    if (!selectedFile || isTaskRunning || !activeConversationId) return;
 
-    setIsStreaming(true);
+    setIsTaskRunning(true); // 任务开始，设置为true
+    setIsStreaming(true); // 开始流式传输
     const userMessageContent = `已上传文件进行优化: ${selectedFile.name}`;
     addMessage({ role: 'user', content: userMessageContent });
     addMessage({ role: 'assistant', content: '', task_type: 'optimize' }); // AI 回复占位符，并带上任务类型
@@ -331,6 +301,7 @@ const DesignOptimizationPage = () => {
         updateLastAiMessage({
             finalData: { answer: "抱歉，创建任务时出现错误。", metadata: {} },
         });
+        setIsTaskRunning(false); // 任务失败，设置为false
         setIsStreaming(false);
         return;
     }
@@ -376,6 +347,7 @@ const DesignOptimizationPage = () => {
           },
           message_end: (data) => {
             updateLastAiMessage({ finalData: data });
+            setIsStreaming(false); // 流式传输结束
             // 在消息结束时提取参数
             if (data.answer && data.metadata && data.metadata.cad_file === "model.step" && data.metadata.code_file === "script.py") {
               console.log("DesignOptimizationPage: message_end received. Full answer content (raw):", JSON.stringify(data.answer)); // 打印完整答案内容（原始字符串）
@@ -437,9 +409,13 @@ const DesignOptimizationPage = () => {
               metadata: {},
             },
           });
+          setIsTaskRunning(false); // 任务失败，设置为false
           setIsStreaming(false);
         },
-        onClose: () => setIsStreaming(false),
+        onClose: () => {
+          setIsTaskRunning(false); // 任务完成，设置为false
+          setIsStreaming(false);
+        },
       });
 
     } catch (error) {
@@ -450,6 +426,7 @@ const DesignOptimizationPage = () => {
           metadata: {},
         },
       });
+      setIsTaskRunning(false); // 任务失败，设置为false
       setIsStreaming(false);
     }
   };
@@ -466,7 +443,7 @@ const DesignOptimizationPage = () => {
             onStart={handleStartOptimization}
             selectedFile={selectedFile}
             isStreaming={isStreaming}
-            disabled={!activeConversationId}
+            disabled={!activeConversationId || isTaskRunning}
           />
         </div>
       </div>
@@ -474,39 +451,59 @@ const DesignOptimizationPage = () => {
   }
 
   return (
-    <PanelGroup direction="vertical" className="flex flex-col h-full bg-white">
-      <Panel>
-        <ConversationDisplay 
-          messages={messages} 
-          isLoading={isLoadingMessages}
-          onParametersExtracted={handleParametersExtracted} 
-        />
-      </Panel>
-      <PanelResizeHandle className="h-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
-      <Panel
-        collapsible={true}
-        defaultSize={optimizableParams.length > 0 ? 50 : 20}
-        minSize={10}
-      >
-        <div className="p-4 border-t bg-gray-50 h-full overflow-y-auto">
-          {optimizableParams.length > 0 ? (
-            <ParameterForm 
-              params={optimizableParams}
-              onSubmit={handleRangesSubmit}
-              isStreaming={isStreaming}
-            />
-          ) : (
-            <FileUploadComponent
-              onFileSelect={setSelectedFile}
-              onStart={handleStartOptimization}
-              selectedFile={selectedFile}
-              isStreaming={isStreaming}
-              disabled={!activeConversationId || isStreaming}
-            />
-          )}
-        </div>
-      </Panel>
-    </PanelGroup>
+    <>
+      <PanelGroup direction="vertical" className="flex flex-col h-full bg-white">
+        <Panel>
+          <ConversationDisplay 
+            messages={messages} 
+            isLoading={isLoadingMessages}
+            onParametersExtracted={handleParametersExtracted} 
+          />
+        </Panel>
+        <PanelResizeHandle className="h-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
+        <Panel
+          collapsible={true}
+          defaultSize={optimizableParams.length > 0 ? 50 : 20}
+          minSize={10}
+        >
+          <div className="p-4 border-t bg-gray-50 h-full overflow-y-auto">
+            {optimizableParams.length > 0 ? (
+              <ParameterForm 
+                params={optimizableParams}
+                onSubmit={handleRangesSubmit}
+                isStreaming={isStreaming}
+                isSecondRoundCompleted={isSecondRoundCompleted}
+              />
+            ) : (
+              <FileUploadComponent
+                onFileSelect={setSelectedFile}
+                onStart={handleStartOptimization}
+                selectedFile={selectedFile}
+                isStreaming={isStreaming}
+                disabled={!activeConversationId || isTaskRunning}
+              />
+            )}
+          </div>
+        </Panel>
+      </PanelGroup>
+
+      <Dialog open={isQueueDialogOpen} onOpenChange={setIsQueueDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Clock className="mr-2 h-5 w-5" />
+              参数已提交
+            </DialogTitle>
+            <DialogDescription>
+              您的参数已成功提交，优化任务已进入后台队列处理。请耐心等待最终结果。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setIsQueueDialogOpen(false)}>关闭</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

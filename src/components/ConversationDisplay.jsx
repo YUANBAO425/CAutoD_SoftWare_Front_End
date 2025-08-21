@@ -12,6 +12,7 @@ import rehypeRaw from 'rehype-raw'; // 导入 rehype-raw
 import remarkGfm from 'remark-gfm'; // 导入 remark-gfm 以支持 GFM (换行符等)
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'; // 导入高亮组件
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'; // 导入深色主题
+import SuggestedQuestions from './SuggestedQuestions';
 
 const UserMessage = ({ content }) => (
   <div className="flex justify-end my-4">
@@ -114,8 +115,9 @@ const OptimizationLogRenderer = ({ content }) => {
 };
 
 
-const AiMessage = ({ message, onParametersExtracted }) => {
-  const { content, parts, metadata } = message;
+const AiMessage = ({ message, onParametersExtracted, onQuestionClick }) => {
+  console.log("AiMessage: Received message object:", message);
+  const { content, parts, metadata, suggested_questions } = message;
 
   const partsToRender = parts?.filter(p => p.type === 'part') || [];
   const imagesToDisplay = parts?.filter(p => p.type === 'image') || [];
@@ -255,12 +257,19 @@ const AiMessage = ({ message, onParametersExtracted }) => {
             </div>
           </div>
         )}
+
+        {suggested_questions && (
+          <SuggestedQuestions 
+            questions={suggested_questions} 
+            onQuestionClick={onQuestionClick} 
+          />
+        )}
       </div>
     </div>
   );
 };
 
-const ConversationDisplay = ({ messages, isLoading, onParametersExtracted }) => {
+const ConversationDisplay = ({ messages, isLoading, onParametersExtracted, onQuestionClick }) => {
   if (isLoading) {
     return <div className="flex items-center justify-center h-full">正在加载对话记录...</div>;
   }
@@ -271,7 +280,12 @@ const ConversationDisplay = ({ messages, isLoading, onParametersExtracted }) => 
         msg.role === 'user' ? (
           <UserMessage key={msg.id || msg.timestamp} content={msg.content} />
         ) : (
-          <AiMessage key={msg.id || msg.timestamp} message={msg} onParametersExtracted={onParametersExtracted} />
+          <AiMessage 
+            key={msg.id || msg.timestamp} 
+            message={msg} 
+            onParametersExtracted={onParametersExtracted}
+            onQuestionClick={onQuestionClick}
+          />
         )
       )}
     </div>

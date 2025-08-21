@@ -39,7 +39,6 @@ const GeometricModelingPage = () => {
     updateLastAiMessage, // 使用新的统一 action
     isLoadingMessages,
     activeTaskId,
-    setActiveTaskId,
     ensureConversation,
     createTask,
   } = useConversationStore();
@@ -50,6 +49,10 @@ const GeometricModelingPage = () => {
     // This logic is now handled by the startNewConversation action
     // and the initial state of the page component.
   }, []);
+
+  const handleQuestionClick = (question) => {
+    setInputValue(question);
+  };
 
   const handleSendMessage = async () => {
     if ((!inputValue.trim() && !selectedFile) || isStreaming) return;
@@ -182,7 +185,11 @@ const GeometricModelingPage = () => {
   // 对话视图
   return (
     <div className="flex flex-col h-full bg-white">
-      <ConversationDisplay messages={messages} isLoading={isLoadingMessages} />
+      <ConversationDisplay 
+        messages={messages} 
+        isLoading={isLoadingMessages}
+        onQuestionClick={handleQuestionClick}
+      />
       <div className="mt-auto p-8">
         <ChatInput
           inputValue={inputValue}
