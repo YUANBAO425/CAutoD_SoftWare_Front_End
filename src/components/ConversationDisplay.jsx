@@ -118,6 +118,80 @@ const OptimizationLogRenderer = ({ content }) => {
 const AiMessage = ({ message, onParametersExtracted, onQuestionClick }) => {
   console.log("AiMessage: Received message object:", message);
   const { content, parts, metadata, suggested_questions } = message;
+  const [showGreeting, setShowGreeting] = useState(true); // 控制问候语显示的状态
+
+  const preprocessMarkdown = (markdownContent) => {
+  if (!markdownContent) return '';
+
+  const listItemRegex = /^- (\w+)：(.+?)，推荐 (.+)/;
+  const allLines = markdownContent.split('\n');
+  let tableRows = [];
+  let otherContentLines = [];
+  let tablePlaceholderIndex = -1;
+
+  allLines.forEach((line, index) => {
+    const match = line.trim().match(listItemRegex);
+    if (match) {
+      if (tablePlaceholderIndex === -1) {
+        tablePlaceholderIndex = otherContentLines.length;
+      }
+      const [, paramName, description, recommendedValue] = match;
+
+      const valueParts = recommendedValue.trim().split(/\s+/);
+      let value = recommendedValue.trim();
+      let unit = '—';
+
+      if (valueParts.length > 1) {
+        const lastPart = valueParts[valueParts.length - 1];
+        if (isNaN(parseFloat(lastPart))) {
+          value = valueParts.slice(0, -1).join(' ');
+          unit = lastPart;
+        }
+      }
+
+      const rowHtml = `<tr>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${paramName}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${description.trim()}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${value}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${unit}</td>
+      </tr>`;
+      tableRows.push(rowHtml);
+    } else {
+      otherContentLines.push(line);
+    }
+  });
+
+  if (tableRows.length > 0) {
+    const headerHtml = `<tr class="bg-gray-50">
+      <td class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">参数名</td>
+      <td class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">含义</td>
+      <td class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">推荐值</td>
+      <td class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">单位</td>
+    </tr>`;
+    const finalTable = `<table class="min-w-full divide-y divide-gray-200 border border-gray-300">
+      <tbody class="bg-white divide-y divide-gray-200">
+        ${headerHtml}
+        ${tableRows.join('')}
+      </tbody>
+    </table>`;
+    // 在第一个参数列表项出现的位置插入表格
+    otherContentLines.splice(tablePlaceholderIndex, 0, finalTable);
+    return otherContentLines.join('\n');
+  }
+
+  return markdownContent;
+};
+
+  const processedContent = preprocessMarkdown(content);
+
+
+  useEffect(() => {
+    if (content && content.trim() !== '') {
+      setShowGreeting(false); // 当内容不为空时，隐藏问候语
+    } else {
+      setShowGreeting(true); // 否则显示问候语
+    }
+  }, [content]);
 
   const partsToRender = parts?.filter(p => p.type === 'part') || [];
   const imagesToDisplay = parts?.filter(p => p.type === 'image') || [];
@@ -186,6 +260,9 @@ const AiMessage = ({ message, onParametersExtracted, onQuestionClick }) => {
         <AvatarFallback>AI</AvatarFallback>
       </Avatar>
       <div className="bg-gray-100 rounded-lg p-3 w-full max-w-4xl">
+        {showGreeting && (
+          <p className="text-gray-500 italic mb-2">请耐心等待，正在处理中...</p>
+        )}
         {isOptimizationLog ? (
           <OptimizationLogRenderer content={content} />
         ) : (
@@ -206,9 +283,15 @@ const AiMessage = ({ message, onParametersExtracted, onQuestionClick }) => {
                     </code>
                   );
                 },
+                table: ({ node, ...props }) => <table className="min-w-full divide-y divide-gray-200 border border-gray-300" {...props} />,
+                thead: ({ node, ...props }) => <thead className="bg-gray-50" {...props} />,
+                tbody: ({ node, ...props }) => <tbody className="bg-white divide-y divide-gray-200" {...props} />,
+                tr: ({ node, ...props }) => <tr className="hover:bg-gray-50" {...props} />,
+                th: ({ node, ...props }) => <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" {...props} />,
+                td: ({ node, ...props }) => <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700" {...props} />,
               }}
             >
-              {content.replace(/\n/g, '  \n')}
+              {processedContent}
             </ReactMarkdown>
           </div>
         )}
