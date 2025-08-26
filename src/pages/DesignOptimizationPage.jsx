@@ -28,6 +28,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Clock } from 'lucide-react';
+import { Checkbox } from "@/components/ui/checkbox";
 
 const ConversationSelector = () => {
   const { conversations, activeConversationId, setActiveConversationId } = useConversationStore();
@@ -102,19 +103,27 @@ const FileUploadComponent = ({ onFileSelect, onStart, selectedFile, isStreaming,
 
 const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted }) => {
   const [extendedParams, setExtendedParams] = useState([]);
+  const [checkedParams, setCheckedParams] = useState({});
+  const prevParamsRef = React.useRef();
 
   useEffect(() => {
     const stressParam = {
       name: 'permissible_stress',
-      initialValue: 235, // Default or fetched value
+      initialValue: 235,
       isStress: true,
     };
-    // Ensure the stress param is only added once
-    if (!params.find(p => p.name === 'permissible_stress')) {
-      setExtendedParams([...params, stressParam]);
-    } else {
-      setExtendedParams(params);
+    const newParams = params.find(p => p.name === 'permissible_stress') ? params : [...params, stressParam];
+    setExtendedParams(newParams);
+
+    // Only reset checked state if the params have actually changed
+    if (JSON.stringify(prevParamsRef.current) !== JSON.stringify(params)) {
+      const initialChecked = {};
+      newParams.forEach(param => {
+        initialChecked[param.name] = true;
+      });
+      setCheckedParams(initialChecked);
     }
+    prevParamsRef.current = params;
   }, [params]);
 
   const [ranges, setRanges] = useState({});
@@ -123,12 +132,13 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
     const initialRanges = {};
     extendedParams.forEach(param => {
       initialRanges[param.name] = {
-        min: param.initialValue !== undefined && param.initialValue !== null ? param.initialValue : '',
-        max: param.initialValue !== undefined && param.initialValue !== null ? param.initialValue : ''
+        min: param.min !== undefined && param.min !== null ? param.min : (param.initialValue !== undefined && param.initialValue !== null ? param.initialValue : ''),
+        max: param.max !== undefined && param.max !== null ? param.max : (param.initialValue !== undefined && param.initialValue !== null ? param.initialValue : '')
       };
     });
     setRanges(initialRanges);
   }, [extendedParams]);
+
   const [submissionStatus, setSubmissionStatus] = useState('idle');
 
   const handleRangeChange = (paramName, bound, value) => {
@@ -138,10 +148,24 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
     }));
   };
 
+  const handleCheckboxChange = (paramName) => {
+    setCheckedParams(prev => ({
+      ...prev,
+      [paramName]: !prev[paramName]
+    }));
+  };
+
   const handleSubmit = async () => {
     setSubmissionStatus('loading');
+    const selectedRanges = {};
+    for (const paramName in ranges) {
+      if (checkedParams[paramName]) {
+        selectedRanges[paramName] = ranges[paramName];
+      }
+    }
+
     try {
-      await onSubmit(ranges);
+      await onSubmit(selectedRanges);
       setSubmissionStatus('success');
     } catch (error) {
       setSubmissionStatus('error');
@@ -153,15 +177,24 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
   return (
     <div className="w-full max-w-2xl mx-auto p-4 border rounded-lg">
       <h3 className="text-lg font-semibold mb-4">设置参数范围</h3>
-      <div className="grid grid-cols-[2fr_1fr_1fr] gap-4 mb-2">
-        <div></div>
+      <div className="grid grid-cols-[auto_2fr_1fr_1fr] gap-x-4 gap-y-2 mb-2 items-center">
+        <div />
+        <div className="text-sm font-medium text-gray-600">参数</div>
         <div className="text-center text-sm font-medium text-gray-600">下界</div>
         <div className="text-center text-sm font-medium text-gray-600">上界</div>
       </div>
       <div className="space-y-4">
         {extendedParams.map(param => (
-          <div key={param.name} className="grid grid-cols-[2fr_1fr_1fr] items-center gap-4">
-            <label className="font-medium" title={param.name}>{param.name}</label>
+          <div key={param.name} className="grid grid-cols-[auto_2fr_1fr_1fr] items-center gap-x-4">
+            <Checkbox
+              id={`check-${param.name}`}
+              checked={!!checkedParams[param.name]}
+              onCheckedChange={() => handleCheckboxChange(param.name)}
+              disabled={isInputDisabled}
+            />
+            <label htmlFor={`check-${param.name}`} className="font-medium" title={param.name}>
+              {param.name}
+            </label>
             {param.isStress ? (
               <>
                 <Input
@@ -169,7 +202,7 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
                   placeholder="最大值"
                   value={ranges[param.name]?.max}
                   onChange={e => handleRangeChange(param.name, 'max', e.target.value)}
-                  disabled={isInputDisabled}
+                  disabled={isInputDisabled || !checkedParams[param.name]}
                   className="col-span-1"
                 />
                 <div /> 
@@ -181,14 +214,14 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
                   placeholder="下界"
                   value={ranges[param.name]?.min}
                   onChange={e => handleRangeChange(param.name, 'min', e.target.value)}
-                  disabled={isInputDisabled}
+                  disabled={isInputDisabled || !checkedParams[param.name]}
                 />
                 <Input
                   type="number"
                   placeholder="上界"
                   value={ranges[param.name]?.max}
                   onChange={e => handleRangeChange(param.name, 'max', e.target.value)}
-                  disabled={isInputDisabled}
+                  disabled={isInputDisabled || !checkedParams[param.name]}
                 />
               </>
             )}
@@ -226,21 +259,24 @@ const DesignOptimizationPage = () => {
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === 'assistant' && lastMessage.content) {
+        const cleanedContent = lastMessage.content.replace(/[^\x00-\x7F\u4e00-\u9fa5\n\r\t\s\w\d\.\-\+\=\:\：]/g, '');
         const extractedParams = [];
-        const paramRegex = /获取参数\d+[:：]\s*(.+?)\s*=\s*(.+)/g;
+        const paramRegex = /获取参数\d+[:：]\s*(.+?)：\[\s*([\d.]+)\s*,\s*([\d.]+)\s*\]/g;
         let match;
         paramRegex.lastIndex = 0;
-        while ((match = paramRegex.exec(lastMessage.content)) !== null) {
+        while ((match = paramRegex.exec(cleanedContent)) !== null) {
           const paramName = match[1].trim();
-          const paramValue = match[2].trim();
-          const initialValue = parseFloat(paramValue);
-          if (!isNaN(initialValue)) {
+          const minValue = parseFloat(match[2].trim());
+          const maxValue = parseFloat(match[3].trim());
+          if (!isNaN(minValue) && !isNaN(maxValue)) {
             extractedParams.push({
               name: paramName,
-              initialValue: initialValue,
-              min: '',
-              max: ''
+              initialValue: (minValue + maxValue) / 2,
+              min: minValue,
+              max: maxValue
             });
+          } else {
+            console.warn(`DesignOptimizationPage: Could not parse min/max values for param: ${paramName}, min: ${match[2]}, max: ${match[3]}`);
           }
         }
         if (extractedParams.length > 0) {
@@ -373,23 +409,23 @@ const DesignOptimizationPage = () => {
               }
 
               const extractedParams = [];
-              const paramRegex = /获取参数\d+[:：]\s*(.+?)\s*=\s*(.+)/g; // 移除行尾匹配，让 (.+) 贪婪匹配到行尾
+              const paramRegex = /获取参数\d+[:：]\s*(.+?)：\[\s*([\d.]+)\s*,\s*([\d.]+)\s*\]/g;
               let match;
-              paramRegex.lastIndex = 0; // 确保每次从头开始匹配
-              while ((match = paramRegex.exec(cleanedAnswer)) !== null) { // 对清理后的字符串执行匹配
-                console.log("DesignOptimizationPage: Param regex match (from cleanedAnswer):", match); // 打印每次匹配结果
+              paramRegex.lastIndex = 0;
+              while ((match = paramRegex.exec(cleanedAnswer)) !== null) {
+                console.log("DesignOptimizationPage: Param regex match (from cleanedAnswer):", match);
                 const paramName = match[1].trim();
-                const paramValue = match[2].trim(); // 对捕获到的值进行 trim
-                const initialValue = parseFloat(paramValue);
-                if (!isNaN(initialValue)) { // 确保解析出的值是有效数字
+                const minValue = parseFloat(match[2].trim());
+                const maxValue = parseFloat(match[3].trim());
+                if (!isNaN(minValue) && !isNaN(maxValue)) {
                   extractedParams.push({
                     name: paramName,
-                    initialValue: initialValue,
-                    min: '',
-                    max: ''
+                    initialValue: (minValue + maxValue) / 2, // 可以设置一个中间值作为初始值
+                    min: minValue,
+                    max: maxValue
                   });
                 } else {
-                  console.warn(`DesignOptimizationPage: Could not parse initialValue for param: ${paramName}, value: ${paramValue}`);
+                  console.warn(`DesignOptimizationPage: Could not parse min/max values for param: ${paramName}, min: ${match[2]}, max: ${match[3]}`);
                 }
               }
               console.log("DesignOptimizationPage: Extracted parameters at message_end:", extractedParams);
