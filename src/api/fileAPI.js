@@ -30,22 +30,31 @@ export function uploadFileAPI(file, conversation_id, task_id) {
 
 /**
  * 下载文件
- * 功能描述：从服务器下载文件
- * 入参：fileName (string) - 需要下载的文件名
+ * 功能描述：从服务器安全地下载文件。接口会验证文件关联的任务是否属于当前用户及会话，仅允许下载有权访问的文件。
+ * 入参：
+ *   - task_id (integer): 任务 ID，用于标识关联的任务
+ *   - conversation_id (string): 会话 ID，用于标识关联的会话
+ *   - file_name (string): 要下载的文件的名称或相对路径
  * 返回参数：文件流
- * url地址：/api/download_file/{file_name}
- * 请求方式：GET
+ * url地址：/download_file
+ * 请求方式：POST
  */
-export async function downloadFileAPI(fileName) {
+export async function downloadFileAPI(task_id, conversation_id, file_name) {
   try {
-    // 由于响应拦截器直接返回 response.data，
-    // 对于 responseType: "blob" 的请求，这里直接收到的就是 Blob 对象。
-    const blobData = await instance.get(`/download_file/${fileName}`, {
-      responseType: "blob", // 关键：告诉 axios 期望一个二进制响应
-    });
+    const response = await instance.post(
+      "/download_file",
+      {
+        task_id,
+        conversation_id,
+        file_name,
+      },
+      {
+        responseType: "blob", // 关键：告诉 axios 期望一个二进制响应
+      }
+    );
 
-    // 直接返回获取到的 Blob 数据
-    return blobData;
+    // 响应拦截器现在会返回整个响应对象，所以我们需要访问 response.data
+    return response.data;
   } catch (error) {
     console.error("Download file API failed:", error);
     throw error; // 重新抛出错误以便上层处理

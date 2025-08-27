@@ -2,13 +2,17 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, Share2 } from 'lucide-react';
 import { downloadFileAPI } from '@/api/fileAPI.js';
+import useConversationStore from '@/store/conversationStore'; // 导入 useConversationStore
 
 const PartCard = ({ part }) => {
+  const { activeConversationId, activeTaskId } = useConversationStore(); // 从 store 获取 activeConversationId 和 activeTaskId
+
   const handleDownload = async () => {
     try {
-      const fileName = part.fileName || part.name; 
-      const response = await downloadFileAPI(fileName);
-      
+      const fileName = part.fileName || part.name;
+      // 使用从 store 获取的 activeTaskId 和 activeConversationId
+      const response = await downloadFileAPI(activeTaskId, activeConversationId, fileName);
+
       // response 本身就是一个 Blob，不需要再次包装
       const url = window.URL.createObjectURL(response);
       const link = document.createElement('a');

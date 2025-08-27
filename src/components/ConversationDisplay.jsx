@@ -239,8 +239,9 @@ const AiMessage = ({ message, onParametersExtracted, onQuestionClick }) => {
 
   const handleDownload = async (fileName) => {
     if (!fileName) return;
+    const { activeConversationId, activeTaskId } = useConversationStore.getState(); // 从 store 获取 activeConversationId 和 activeTaskId
     try {
-      const response = await downloadFileAPI(fileName);
+      const response = await downloadFileAPI(activeTaskId, activeConversationId, fileName);
       const url = window.URL.createObjectURL(response);
       const link = document.createElement('a');
       link.href = url;
@@ -322,17 +323,21 @@ const AiMessage = ({ message, onParametersExtracted, onQuestionClick }) => {
           </div>
         )}
 
-        {metadata && (
+        {metadata && (metadata.preview_image || metadata.cad_file || (!isOptimizationLog && metadata.code_file)) && (
           <div className="mt-4 border-t pt-2">
             <h4 className="text-sm font-semibold mb-2">生成文件:</h4>
             <div className="flex flex-col space-y-2">
-               <Button variant="outline" size="sm" onClick={() => handleDownload(metadata.preview_image)}>
-                  <ImageIcon className="mr-2 h-4 w-4" /> 预览图
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => handleDownload(metadata.cad_file)}>
-                  <Download className="mr-2 h-4 w-4" /> 下载CAD模型
-              </Button>
-              {!isOptimizationLog && (
+               {metadata.preview_image && (
+                <Button variant="outline" size="sm" onClick={() => handleDownload(metadata.preview_image)}>
+                    <ImageIcon className="mr-2 h-4 w-4" /> 预览图
+                </Button>
+               )}
+               {metadata.cad_file && (
+                <Button variant="outline" size="sm" onClick={() => handleDownload(metadata.cad_file)}>
+                    <Download className="mr-2 h-4 w-4" /> 下载CAD模型
+                </Button>
+               )}
+              {!isOptimizationLog && metadata.code_file && (
                 <Button variant="outline" size="sm" onClick={() => handleDownload(metadata.code_file)}>
                     <Code className="mr-2 h-4 w-4" /> 下载建模代码
                 </Button>

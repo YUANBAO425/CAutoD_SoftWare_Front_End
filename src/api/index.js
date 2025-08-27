@@ -23,12 +23,24 @@ instance.interceptors.request.use(
 // 响应拦截器
 instance.interceptors.response.use(
   (response) => {
-    // 对响应数据做点什么
+    // 如果请求的 responseType 是 'blob'，并且状态码是 2xx，则直接返回整个响应对象
+    // 这样调用方可以访问到 response.data (Blob) 和 response.headers (如 Content-Disposition)
+    if (
+      response.config.responseType === "blob" &&
+      response.status >= 200 &&
+      response.status < 300
+    ) {
+      return response;
+    }
+    // 否则，返回响应数据
     return response.data;
   },
   (error) => {
     // 对响应错误做点什么
     console.error("API请求错误:", error);
+    // 对于非 Blob 响应的错误，直接拒绝 Promise
+    // 对于 Blob 响应的错误，如果需要处理错误信息，可能需要从 error.response.data 中读取
+    // 但通常对于下载失败，直接抛出错误即可
     return Promise.reject(error);
   }
 );
