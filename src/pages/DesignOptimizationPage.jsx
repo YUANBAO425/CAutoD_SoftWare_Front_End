@@ -101,32 +101,57 @@ const FileUploadComponent = ({ onFileSelect, onStart, selectedFile, isStreaming,
   );
 };
 
+const fixedParamsDefinitions = [
+  { name: 'permissible_stress', initialValue: 355000000, isStress: true, label: '最大应力(mN)' },
+  { name: 'method', initialValue: 'GA', isSelect: true, options: ['GA', 'HA'], label: '优化方法' },
+  { name: 'generations', initialValue: 6, isSelect: true, options: Array.from({ length: 10 }, (_, i) => i + 1), label: '代数' },
+  { name: 'population_size', initialValue: 7, isSelect: true, options: Array.from({ length: 10 }, (_, i) => i + 1), label: '种群数量' },
+];
+
 const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted }) => {
   const [extendedParams, setExtendedParams] = useState([]);
   const [checkedParams, setCheckedParams] = useState({});
   const prevParamsRef = React.useRef();
 
   useEffect(() => {
-    const stressParam = {
-      name: 'permissible_stress',
-      initialValue: 235,
-      isStress: true,
-    };
-    const newParams = params.find(p => p.name === 'permissible_stress') ? params : [...params, stressParam];
-    setExtendedParams(newParams);
+    // 从 AI 消息中提取的参数，过滤掉与固定参数同名的
+    const extractedParams = params.filter(p => !fixedParamsDefinitions.some(fp => fp.name === p.name));
 
-    // Only reset checked state if the params have actually changed
+    // 合并参数，固定参数优先，并确保其属性被保留
+    const combinedParams = [...extractedParams];
+    fixedParamsDefinitions.forEach(fixedParam => {
+      const existingParam = params.find(p => p.name === fixedParam.name);
+      if (existingParam) {
+        // 如果 AI 消息中也提取了同名参数，则合并属性，固定参数的 isStress/isSelect 优先
+        combinedParams.push({ ...existingParam, ...fixedParam });
+      } else {
+        combinedParams.push(fixedParam);
+      }
+    });
+
+    setExtendedParams(combinedParams);
+
+    // 初始化选中状态
     if (JSON.stringify(prevParamsRef.current) !== JSON.stringify(params)) {
       const initialChecked = {};
-      newParams.forEach(param => {
-        initialChecked[param.name] = true;
+      combinedParams.forEach(param => {
+        initialChecked[param.name] = true; // 固定参数默认选中
       });
       setCheckedParams(initialChecked);
     }
     prevParamsRef.current = params;
+
+    // 初始化 fixedValues
+    const initialFixedValues = {};
+    fixedParamsDefinitions.forEach(fixedParam => {
+      initialFixedValues[fixedParam.name] = String(fixedParam.initialValue);
+    });
+    setFixedValues(initialFixedValues);
+
   }, [params]);
 
   const [ranges, setRanges] = useState({});
+  const [fixedValues, setFixedValues] = useState({});
 
   useEffect(() => {
     const initialRanges = {};
@@ -137,7 +162,7 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
       };
     });
     setRanges(initialRanges);
-  }, [extendedParams]);
+  }, [extendedParams]); // 移除 fixedValues 的初始化，因为它已经在第一个 useEffect 中处理
 
   const [submissionStatus, setSubmissionStatus] = useState('idle');
 
@@ -157,15 +182,34 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
 
   const handleSubmit = async () => {
     setSubmissionStatus('loading');
-    const selectedRanges = {};
-    for (const paramName in ranges) {
-      if (checkedParams[paramName]) {
-        selectedRanges[paramName] = ranges[paramName];
+    const submissionParams = {};
+
+    extendedParams.forEach(param => {
+      if (checkedParams[param.name]) {
+        if (param.isSelect) {
+          // For select parameters, wrap the single value in 'value' field
+          const value = fixedValues[param.name];
+          submissionParams[param.name] = {
+            value: value,
+          };
+        } else if (param.isStress) {
+          // For stress parameter, wrap the single value in 'value' field
+          const value = parseFloat(fixedValues[param.name]);
+          submissionParams[param.name] = {
+            value: value,
+          };
+        } else {
+          // For regular range parameters
+          submissionParams[param.name] = {
+            min: parseFloat(ranges[param.name]?.min),
+            max: parseFloat(ranges[param.name]?.max),
+          };
+        }
       }
-    }
+    });
 
     try {
-      await onSubmit(selectedRanges);
+      await onSubmit(submissionParams);
       setSubmissionStatus('success');
     } catch (error) {
       setSubmissionStatus('error');
@@ -180,7 +224,7 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
       <div className="grid grid-cols-[auto_2fr_1fr_1fr] gap-x-4 gap-y-2 mb-2 items-center">
         <div />
         <div className="text-sm font-medium text-gray-600">参数</div>
-        <div className="text-center text-sm font-medium text-gray-600">下界</div>
+        <div className="text-center text-sm font-medium text-gray-600">值/下界</div>
         <div className="text-center text-sm font-medium text-gray-600">上界</div>
       </div>
       <div className="space-y-4">
@@ -190,22 +234,40 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
               id={`check-${param.name}`}
               checked={!!checkedParams[param.name]}
               onCheckedChange={() => handleCheckboxChange(param.name)}
-              disabled={isInputDisabled}
+              disabled={isInputDisabled || param.isStress || param.isSelect} // 固定参数禁用复选框
             />
             <label htmlFor={`check-${param.name}`} className="font-medium" title={param.name}>
-              {param.name}
+              {param.label || param.name}
+              {param.label && <span className="text-gray-500 text-sm ml-2">({param.name})</span>}
             </label>
-            {param.isStress ? (
+            {param.isSelect ? (
+              <Select
+                value={fixedValues[param.name]}
+                onValueChange={(value) => setFixedValues(prev => ({ ...prev, [param.name]: value }))}
+                disabled={isInputDisabled}
+              >
+                <SelectTrigger className="col-span-1">
+                  <SelectValue placeholder={`选择 ${param.label}`} />
+                </SelectTrigger>
+                <SelectContent>
+                  {param.options.map(option => (
+                    <SelectItem key={option} value={String(option)}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : param.isStress ? (
               <>
                 <Input
                   type="number"
                   placeholder="最大值"
-                  value={ranges[param.name]?.max}
-                  onChange={e => handleRangeChange(param.name, 'max', e.target.value)}
+                  value={fixedValues[param.name]}
+                  onChange={e => setFixedValues(prev => ({ ...prev, [param.name]: e.target.value }))}
                   disabled={isInputDisabled || !checkedParams[param.name]}
                   className="col-span-1"
                 />
-                <div /> 
+                <div />
               </>
             ) : (
               <>
@@ -261,7 +323,7 @@ const DesignOptimizationPage = () => {
       if (lastMessage.role === 'assistant' && lastMessage.content) {
         const cleanedContent = lastMessage.content.replace(/[^\x00-\x7F\u4e00-\u9fa5\n\r\t\s\w\d\.\-\+\=\:\：]/g, '');
         const extractedParams = [];
-        const paramRegex = /获取参数\d+[:：]\s*(.+?)：\[\s*([\d.]+)\s*,\s*([\d.]+)\s*\]/g;
+        const paramRegex = /获取到参数\d+[:：]\s*(.+?)：\[\s*([\d.]+)\s*,\s*([\d.]+)\s*\]/g;
         let match;
         paramRegex.lastIndex = 0;
         while ((match = paramRegex.exec(cleanedContent)) !== null) {
