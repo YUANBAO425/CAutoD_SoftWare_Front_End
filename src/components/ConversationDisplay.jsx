@@ -5,8 +5,10 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import PartCard from './PartCard'; // 导入 PartCard
 import ProtectedImage from './ProtectedImage'; // 导入 ProtectedImage 组件
 import { Button } from './ui/button';
-import { Download, Code, Image as ImageIcon, Clipboard } from 'lucide-react';
-import { downloadFileAPI } from '@/api/fileAPI'; // 导入下载API
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"; // 导入 Dialog
+import ModelViewer from '@/layouts/ModelViwer'; // 导入 ModelViewer
+import { Download, Code, Image as ImageIcon, Clipboard, View } from 'lucide-react'; // 导入 View icon
+import { downloadFileAPI, getModelFileAPI } from '@/api/fileAPI'; // 导入 API
 import ReactMarkdown from 'react-markdown'; // 导入 ReactMarkdown
 import rehypeRaw from 'rehype-raw'; // 导入 rehype-raw
 import remarkGfm from 'remark-gfm'; // 导入 remark-gfm 以支持 GFM (换行符等)
@@ -119,6 +121,19 @@ const AiMessage = ({ message, onParametersExtracted, onQuestionClick }) => {
   console.log("AiMessage: Received message object:", message);
   const { content, parts, metadata, suggested_questions } = message;
   const [showGreeting, setShowGreeting] = useState(true); // 控制问候语显示的状态
+
+  const handleShowModel = (fileName) => {
+    if (!fileName) return;
+    const { activeConversationId, activeTaskId } = useConversationStore.getState();
+    // 构建模型文件的完整URL，假设后端 /model 接口可以接受 GET 请求或者通过 POST 请求获取数据
+    // 这里我们假设 /model 接口可以直接通过 GET 请求访问，或者我们可以在新页面中再次调用 getModelFileAPI
+    // 为了简化，我们先假设 /model 接口可以直接访问，或者 model_viewer.html 会自己处理 API 调用
+    // 更好的做法是，model_viewer.html 内部调用 getModelFileAPI
+    // 但是为了快速实现，我们先传递文件名，让 model_viewer.html 自己处理
+    const backendApiBaseUrl = import.meta.env.VITE_API_URL || ''; // 获取后端API URL
+    const modelUrl = `/model?task_id=${activeTaskId}&conversation_id=${activeConversationId}&file_name=${fileName}`;
+    window.open(`/model_viewer.html?modelUrl=${encodeURIComponent(modelUrl)}&backendApiBaseUrl=${encodeURIComponent(backendApiBaseUrl)}`, '_blank');
+  };
 
   const preprocessMarkdown = (markdownContent) => {
   if (!markdownContent) return '';
@@ -333,9 +348,16 @@ const AiMessage = ({ message, onParametersExtracted, onQuestionClick }) => {
                 </Button>
                )}
                {metadata.cad_file && (
-                <Button variant="outline" size="sm" onClick={() => handleDownload(metadata.cad_file)}>
-                    <Download className="mr-2 h-4 w-4" /> 下载CAD模型
-                </Button>
+                <div className="flex space-x-2">
+                  <Button variant="outline" size="sm" onClick={() => handleDownload(metadata.cad_file)} className="flex-1">
+                      <Download className="mr-2 h-4 w-4" /> 下载CAD模型
+                  </Button>
+                  {metadata.stl_file && (
+                    <Button variant="outline" size="sm" onClick={() => handleShowModel(metadata.stl_file)} className="flex-1">
+                      <View className="mr-2 h-4 w-4" /> 展示STL模型
+                    </Button>
+                  )}
+                </div>
                )}
               {!isOptimizationLog && metadata.code_file && (
                 <Button variant="outline" size="sm" onClick={() => handleDownload(metadata.code_file)}>

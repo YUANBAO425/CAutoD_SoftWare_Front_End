@@ -26,7 +26,8 @@ instance.interceptors.response.use(
     // 如果请求的 responseType 是 'blob'，并且状态码是 2xx，则直接返回整个响应对象
     // 这样调用方可以访问到 response.data (Blob) 和 response.headers (如 Content-Disposition)
     if (
-      response.config.responseType === "blob" &&
+      (response.config.responseType === "blob" ||
+        response.config.responseType === "arraybuffer") &&
       response.status >= 200 &&
       response.status < 300
     ) {

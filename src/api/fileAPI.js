@@ -60,3 +60,34 @@ export async function downloadFileAPI(task_id, conversation_id, file_name) {
     throw error; // 重新抛出错误以便上层处理
   }
 }
+
+/**
+ * 获取模型文件
+ * 功能描述：从服务器获取用于3D展示的STL模型文件。
+ * 入参：
+ *   - task_id (integer): 任务 ID
+ *   - conversation_id (string): 会话 ID
+ *   - file_name (string): 模型文件名
+ * 返回参数：模型文件内容的 ArrayBuffer
+ * url地址：/model
+ * 请求方式：POST
+ */
+export async function getModelFileAPI(task_id, conversation_id, file_name) {
+  try {
+    const response = await instance.post(
+      "/model",
+      {
+        task_id,
+        conversation_id,
+        file_name,
+      },
+      {
+        responseType: "arraybuffer", // 关键：期望一个 ArrayBuffer
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Get model file API failed:", error);
+    throw error;
+  }
+}
