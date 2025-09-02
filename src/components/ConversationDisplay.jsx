@@ -117,8 +117,8 @@ const OptimizationLogRenderer = ({ content }) => {
 };
 
 
-const AiMessage = ({ message, onParametersExtracted, onQuestionClick }) => {
-  console.log("AiMessage: Received message object:", message);
+const AiMessage = ({ message, onParametersExtracted, onQuestionClick, onImagesExtracted }) => { // 添加 onImagesExtracted prop
+  console.log("AiMessage: Received message object (full):", message); // 打印完整的 message 对象
   const { content, parts, metadata, suggested_questions } = message;
   const [showGreeting, setShowGreeting] = useState(true); // 控制问候语显示的状态
 
@@ -211,6 +211,13 @@ const AiMessage = ({ message, onParametersExtracted, onQuestionClick }) => {
   const partsToRender = parts?.filter(p => p.type === 'part') || [];
   const imagesToDisplay = parts?.filter(p => p.type === 'image') || [];
 
+  useEffect(() => {
+    console.log("AiMessage: imagesToDisplay (in useEffect):", imagesToDisplay); // 调整控制台打印位置
+    if (imagesToDisplay.length > 0 && onImagesExtracted) {
+      onImagesExtracted(imagesToDisplay); // 将图片数据传递给父组件
+    }
+  }, [imagesToDisplay, onImagesExtracted]);
+
   // Use the new task_type property for a reliable check
   const isOptimizationLog = message.task_type === 'optimize' || (content && (content.includes('开始优化') || content.includes('发送参数')));
 
@@ -279,56 +286,40 @@ const AiMessage = ({ message, onParametersExtracted, onQuestionClick }) => {
         {showGreeting && (
           <p className="text-gray-500 italic mb-2">请耐心等待，正在处理中...</p>
         )}
-        {isOptimizationLog ? (
-          <OptimizationLogRenderer content={content} />
-        ) : (
-          <div className="prose max-w-none break-words">
-            <ReactMarkdown
-              rehypePlugins={[rehypeRaw]}
-              remarkPlugins={[remarkGfm]} // 添加 remarkGfm 插件
-              components={{
-                code({ node, inline, className, children, ...props }) {
-                  const match = /language-(\w+)/.exec(className || '');
-                  return !inline && match ? (
-                    <CodeBlock language={match[1]} {...props}>
-                      {children}
-                    </CodeBlock>
-                  ) : (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  );
-                },
-                table: ({ node, ...props }) => <table className="min-w-full divide-y divide-gray-200 border border-gray-300" {...props} />,
-                thead: ({ node, ...props }) => <thead className="bg-gray-50" {...props} />,
-                tbody: ({ node, ...props }) => <tbody className="bg-white divide-y divide-gray-200" {...props} />,
-                tr: ({ node, ...props }) => <tr className="hover:bg-gray-50" {...props} />,
-                th: ({ node, ...props }) => <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" {...props} />,
-                td: ({ node, ...props }) => <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700" {...props} />,
-              }}
-            >
-              {processedContent}
-            </ReactMarkdown>
-          </div>
-        )}
-
-        {imagesToDisplay && imagesToDisplay.length > 0 && (
-          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-            {imagesToDisplay.map((image, idx) => (
-              <div key={idx} className="border rounded-lg p-2">
-                <ProtectedImage 
-                  src={image.imageUrl.startsWith('http://') || image.imageUrl.startsWith('https://') 
-                    ? image.imageUrl 
-                    : `http://127.0.0.1:8080${image.imageUrl}`}
-                  alt={image.altText || 'Generated image'} 
-                  className="w-full h-auto rounded cursor-pointer"
-                  onClick={() => handleDownload(image.fileName)}
-                />
-                <p className="text-sm text-center mt-1">{image.altText || image.fileName}</p>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="flex-grow"> {/* 内容区域 */}
+          {isOptimizationLog ? (
+            <OptimizationLogRenderer content={content} />
+          ) : (
+            <div className="prose max-w-none break-words">
+              <ReactMarkdown
+                rehypePlugins={[rehypeRaw]}
+                remarkPlugins={[remarkGfm]} // 添加 remarkGfm 插件
+                components={{
+                  code({ node, inline, className, children, ...props }) {
+                    const match = /language-(\w+)/.exec(className || '');
+                    return !inline && match ? (
+                      <CodeBlock language={match[1]} {...props}>
+                        {children}
+                      </CodeBlock>
+                    ) : (
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
+                    );
+                  },
+                  table: ({ node, ...props }) => <table className="min-w-full divide-y divide-gray-200 border border-gray-300" {...props} />,
+                  thead: ({ node, ...props }) => <thead className="bg-gray-50" {...props} />,
+                  tbody: ({ node, ...props }) => <tbody className="bg-white divide-y divide-gray-200" {...props} />,
+                  tr: ({ node, ...props }) => <tr className="hover:bg-gray-50" {...props} />,
+                  th: ({ node, ...props }) => <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" {...props} />,
+                  td: ({ node, ...props }) => <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700" {...props} />,
+                }}
+              >
+                {processedContent}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
 
         {partsToRender && partsToRender.length > 0 && (
           <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -379,7 +370,7 @@ const AiMessage = ({ message, onParametersExtracted, onQuestionClick }) => {
   );
 };
 
-const ConversationDisplay = ({ messages, isLoading, onParametersExtracted, onQuestionClick }) => {
+const ConversationDisplay = ({ messages, isLoading, onParametersExtracted, onQuestionClick, onImagesExtracted }) => { // 添加 onImagesExtracted prop
   if (isLoading) {
     return <div className="flex items-center justify-center h-full">正在加载对话记录...</div>;
   }
@@ -395,6 +386,7 @@ const ConversationDisplay = ({ messages, isLoading, onParametersExtracted, onQue
             message={msg} 
             onParametersExtracted={onParametersExtracted}
             onQuestionClick={onQuestionClick}
+            onImagesExtracted={onImagesExtracted} // 传递 onImagesExtracted prop
           />
         )
       )}

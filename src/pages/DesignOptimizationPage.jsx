@@ -7,6 +7,7 @@ import { uploadFileAPI } from '@/api/fileAPI.js';
 import { Upload } from 'lucide-react';
 import useConversationStore from '@/store/conversationStore';
 import ConversationDisplay from '@/components/ConversationDisplay.jsx';
+import ProtectedImage from '@/components/ProtectedImage'; // 导入 ProtectedImage 组件
 import {
   Select,
   SelectContent,
@@ -115,12 +116,13 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
 
   useEffect(() => {
     // 从 AI 消息中提取的参数，过滤掉与固定参数同名的
-    const extractedParams = params.filter(p => !fixedParamsDefinitions.some(fp => fp.name === p.name));
+    // 从 AI 消息中提取的参数，过滤掉与固定参数同名的
+    const extractedParams = params ? params.filter(p => !fixedParamsDefinitions.some(fp => fp.name === p.name)) : [];
 
     // 合并参数，固定参数优先，并确保其属性被保留
     const combinedParams = [...extractedParams];
     fixedParamsDefinitions.forEach(fixedParam => {
-      const existingParam = params.find(p => p.name === fixedParam.name);
+      const existingParam = params ? params.find(p => p.name === fixedParam.name) : undefined;
       if (existingParam) {
         // 如果 AI 消息中也提取了同名参数，则合并属性，固定参数的 isStress/isSelect 优先
         combinedParams.push({ ...existingParam, ...fixedParam });
@@ -132,6 +134,7 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
     setExtendedParams(combinedParams);
 
     // 初始化选中状态
+    // 只有当 params 发生变化时才重新初始化 checkedParams
     if (JSON.stringify(prevParamsRef.current) !== JSON.stringify(params)) {
       const initialChecked = {};
       combinedParams.forEach(param => {
@@ -316,7 +319,9 @@ const DesignOptimizationPage = () => {
   const [uploadedFileUrl, setUploadedFileUrl] = useState(null);
   const [isSecondRoundCompleted, setIsSecondRoundCompleted] = useState(false);
   const [isQueueDialogOpen, setIsQueueDialogOpen] = useState(false);
+  const [displayedImages, setDisplayedImages] = useState([]); // 新增状态用于存储图片数据
 
+  // 恢复参数提取逻辑
   useEffect(() => {
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
@@ -351,6 +356,11 @@ const DesignOptimizationPage = () => {
   const handleParametersExtracted = useCallback((params) => {
     console.log("DesignOptimizationPage: Parameters extracted from AI message:", params);
     setOptimizableParams(params);
+  }, []);
+
+  const handleImagesExtracted = useCallback((images) => {
+    console.log("DesignOptimizationPage: Images extracted from AI message:", images);
+    setDisplayedImages(images); // 更新图片状态
   }, []);
 
   const handleRangesSubmit = async (ranges) => {
@@ -556,31 +566,53 @@ const DesignOptimizationPage = () => {
             messages={messages} 
             isLoading={isLoadingMessages}
             onParametersExtracted={handleParametersExtracted} 
+            onImagesExtracted={handleImagesExtracted} // 传递 onImagesExtracted prop
           />
         </Panel>
         <PanelResizeHandle className="h-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
         <Panel
           collapsible={true}
-          defaultSize={optimizableParams.length > 0 ? 50 : 20}
+          defaultSize={optimizableParams.length > 0 || displayedImages.length > 0 ? 50 : 20} // 根据是否有图片或参数调整默认大小
           minSize={10}
         >
-          <div className="p-4 border-t bg-gray-50 h-full overflow-y-auto">
-            {optimizableParams.length > 0 ? (
-              <ParameterForm 
-                params={optimizableParams}
-                onSubmit={handleRangesSubmit}
-                isStreaming={isStreaming}
-                isSecondRoundCompleted={isSecondRoundCompleted}
-              />
-            ) : (
-              <FileUploadComponent
-                onFileSelect={setSelectedFile}
-                onStart={handleStartOptimization}
-                selectedFile={selectedFile}
-                isStreaming={isStreaming}
-                disabled={!activeConversationId || isTaskRunning}
-              />
+          <div className="p-4 border-t bg-gray-50 h-full overflow-y-auto flex flex-col md:flex-row gap-4"> {/* 使用 flex 布局 */}
+            {displayedImages.length > 0 && (
+              <div className="flex-shrink-0 w-full md:w-1/2 lg:w-1/3 space-y-2"> {/* 图片区域 */}
+                {displayedImages.map((image, idx) => (
+                  <div key={idx} className="border rounded-lg p-2">
+                    <ProtectedImage 
+                      src={
+                        image.imageUrl.startsWith('http://') || image.imageUrl.startsWith('https://') 
+                          ? image.imageUrl 
+                          : `${(import.meta.env.VITE_API_URL || 'http://127.0.0.1:8080').replace('/api', '')}${image.imageUrl}`
+                      }
+                      alt={image.altText || 'Generated image'} 
+                      className="w-full h-auto rounded cursor-pointer"
+                      // onClick={() => handleDownload(image.fileName)} // 图片下载功能可以根据需求添加
+                    />
+                    <p className="text-sm text-center mt-1">{image.altText || image.fileName}</p>
+                  </div>
+                ))}
+              </div>
             )}
+            <div className="flex-grow"> {/* 参数表单或文件上传区域 */}
+              {optimizableParams.length > 0 ? (
+                <ParameterForm 
+                  params={optimizableParams}
+                  onSubmit={handleRangesSubmit}
+                  isStreaming={isStreaming}
+                  isSecondRoundCompleted={isSecondRoundCompleted}
+                />
+              ) : (
+                <FileUploadComponent
+                  onFileSelect={setSelectedFile}
+                  onStart={handleStartOptimization}
+                  selectedFile={selectedFile}
+                  isStreaming={isStreaming}
+                  disabled={!activeConversationId || isTaskRunning}
+                />
+              )}
+            </div>
           </div>
         </Panel>
       </PanelGroup>
