@@ -105,26 +105,23 @@ const FileUploadComponent = ({ onFileSelect, onStart, selectedFile, isStreaming,
 const fixedParamsDefinitions = [
   { name: 'permissible_stress', initialValue: 355000000, isStress: true, label: '最大应力(mN)' },
   { name: 'method', initialValue: 'GA', isSelect: true, options: ['GA', 'HA'], label: '优化方法' },
-  { name: 'generations', initialValue: 6, isSelect: true, options: Array.from({ length: 10 }, (_, i) => i + 1), label: '代数' },
-  { name: 'population_size', initialValue: 7, isSelect: true, options: Array.from({ length: 10 }, (_, i) => i + 1), label: '种群数量' },
+  { name: 'generations', initialValue: 6, isSelect: true, options: [...Array.from({ length: 10 }, (_, i) => i + 1), 20, 30, 50], label: '代数' },
+  { name: 'population_size', initialValue: 7, isSelect: true, options: [...Array.from({ length: 10 }, (_, i) => i + 1), 20, 30, 50], label: '种群数量' },
 ];
 
-const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted }) => {
+const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted, displayedImages }) => {
   const [extendedParams, setExtendedParams] = useState([]);
   const [checkedParams, setCheckedParams] = useState({});
   const prevParamsRef = React.useRef();
+  const [ranges, setRanges] = useState({});
+  const [fixedValues, setFixedValues] = useState({});
 
   useEffect(() => {
-    // 从 AI 消息中提取的参数，过滤掉与固定参数同名的
-    // 从 AI 消息中提取的参数，过滤掉与固定参数同名的
     const extractedParams = params ? params.filter(p => !fixedParamsDefinitions.some(fp => fp.name === p.name)) : [];
-
-    // 合并参数，固定参数优先，并确保其属性被保留
     const combinedParams = [...extractedParams];
     fixedParamsDefinitions.forEach(fixedParam => {
       const existingParam = params ? params.find(p => p.name === fixedParam.name) : undefined;
       if (existingParam) {
-        // 如果 AI 消息中也提取了同名参数，则合并属性，固定参数的 isStress/isSelect 优先
         combinedParams.push({ ...existingParam, ...fixedParam });
       } else {
         combinedParams.push(fixedParam);
@@ -133,18 +130,15 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
 
     setExtendedParams(combinedParams);
 
-    // 初始化选中状态
-    // 只有当 params 发生变化时才重新初始化 checkedParams
     if (JSON.stringify(prevParamsRef.current) !== JSON.stringify(params)) {
       const initialChecked = {};
       combinedParams.forEach(param => {
-        initialChecked[param.name] = true; // 固定参数默认选中
+        initialChecked[param.name] = true;
       });
       setCheckedParams(initialChecked);
     }
     prevParamsRef.current = params;
 
-    // 初始化 fixedValues
     const initialFixedValues = {};
     fixedParamsDefinitions.forEach(fixedParam => {
       initialFixedValues[fixedParam.name] = String(fixedParam.initialValue);
@@ -152,9 +146,6 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
     setFixedValues(initialFixedValues);
 
   }, [params]);
-
-  const [ranges, setRanges] = useState({});
-  const [fixedValues, setFixedValues] = useState({});
 
   useEffect(() => {
     const initialRanges = {};
@@ -165,7 +156,33 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
       };
     });
     setRanges(initialRanges);
-  }, [extendedParams]); // 移除 fixedValues 的初始化，因为它已经在第一个 useEffect 中处理
+  }, [extendedParams]);
+
+  // 新增 useEffect 钩子，用于根据勾选的变量数推荐固定参数的值
+  useEffect(() => {
+    const optimizableParamNames = extendedParams
+      .filter(p => !fixedParamsDefinitions.some(fp => fp.name === p.name))
+      .map(p => p.name);
+
+    const checkedOptimizableParamsCount = optimizableParamNames.filter(name => checkedParams[name]).length;
+
+    let recommendedPopulationSize = fixedParamsDefinitions.find(p => p.name === 'population_size').initialValue;
+    let recommendedGenerations = fixedParamsDefinitions.find(p => p.name === 'generations').initialValue;
+
+    if (checkedOptimizableParamsCount >= 5 && checkedOptimizableParamsCount <= 8) {
+      recommendedPopulationSize = 20;
+      recommendedGenerations = 30;
+    } else if (checkedOptimizableParamsCount > 8) {
+      recommendedPopulationSize = 30;
+      recommendedGenerations = 50;
+    }
+
+    setFixedValues(prev => ({
+      ...prev,
+      population_size: String(recommendedPopulationSize),
+      generations: String(recommendedGenerations),
+    }));
+  }, [checkedParams, extendedParams]); // 依赖 checkedParams 和 extendedParams
 
   const [submissionStatus, setSubmissionStatus] = useState('idle');
 
@@ -222,80 +239,107 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
   const isInputDisabled = submissionStatus === 'loading' || submissionStatus === 'success';
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4 border rounded-lg">
-      <h3 className="text-lg font-semibold mb-4">设置参数范围</h3>
-      <div className="grid grid-cols-[auto_2fr_1fr_1fr] gap-x-4 gap-y-2 mb-2 items-center">
-        <div />
-        <div className="text-sm font-medium text-gray-600">参数</div>
-        <div className="text-center text-sm font-medium text-gray-600">值/下界</div>
-        <div className="text-center text-sm font-medium text-gray-600">上界</div>
-      </div>
-      <div className="space-y-4">
-        {extendedParams.map(param => (
-          <div key={param.name} className="grid grid-cols-[auto_2fr_1fr_1fr] items-center gap-x-4">
-            <Checkbox
-              id={`check-${param.name}`}
-              checked={!!checkedParams[param.name]}
-              onCheckedChange={() => handleCheckboxChange(param.name)}
-              disabled={isInputDisabled || param.isStress || param.isSelect} // 固定参数禁用复选框
-            />
-            <label htmlFor={`check-${param.name}`} className="font-medium" title={param.name}>
-              {param.label || param.name}
-              {param.label && <span className="text-gray-500 text-sm ml-2">({param.name})</span>}
-            </label>
-            {param.isSelect ? (
-              <Select
-                value={fixedValues[param.name]}
-                onValueChange={(value) => setFixedValues(prev => ({ ...prev, [param.name]: value }))}
-                disabled={isInputDisabled}
-              >
-                <SelectTrigger className="col-span-1">
-                  <SelectValue placeholder={`选择 ${param.label}`} />
-                </SelectTrigger>
-                <SelectContent>
-                  {param.options.map(option => (
-                    <SelectItem key={option} value={String(option)}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : param.isStress ? (
-              <>
-                <Input
-                  type="number"
-                  placeholder="最大值"
+    <div className="w-full mx-auto p-4 border rounded-lg flex flex-col md:flex-row gap-4">
+      {displayedImages.length > 0 && (
+        <div className="flex-shrink-0 w-full md:w-1/2 lg:w-1/3 space-y-2">
+          {displayedImages
+            .filter(image => image.altText === "screenshot") // 只渲染 altText 为 "screenshot" 的图片
+            .map((image, idx) => {
+            console.log("Image altText:", image.altText); // 打印 altText
+            return (
+              <div key={idx} className="border rounded-lg p-2">
+                <ProtectedImage
+                  src={
+                    image.imageUrl.startsWith('http://') || image.imageUrl.startsWith('https://')
+                      ? image.imageUrl
+                      : `${(import.meta.env.VITE_API_URL || 'http://127.0.0.1:8080').replace('/api', '')}${image.imageUrl}`
+                  }
+                  alt={image.altText === "screenshot" ? "screenshot" : (image.altText || 'Generated image')}
+                  className="w-full h-auto rounded cursor-pointer"
+                />
+                <p className="text-sm text-center mt-1">
+                  {image.altText === "screenshot" ? "screenshot" : (image.altText || image.fileName)}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <div className="flex-grow">
+        <h3 className="text-lg font-semibold mb-4">设置参数范围</h3>
+        <div className="grid grid-cols-[auto_2fr_1fr_1fr] gap-x-4 gap-y-2 mb-2 items-center">
+          <div />
+          <div className="text-sm font-medium text-gray-600">参数</div>
+          <div className="text-center text-sm font-medium text-gray-600">值/下界</div>
+          <div className="text-center text-sm font-medium text-gray-600">上界</div>
+        </div>
+        <div className="space-y-4">
+          {extendedParams.map(param => (
+            <div key={param.name} className="grid grid-cols-[auto_2fr_1fr_1fr] items-center gap-x-4">
+              <Checkbox
+                id={`check-${param.name}`}
+                checked={!!checkedParams[param.name]}
+                onCheckedChange={() => handleCheckboxChange(param.name)}
+                disabled={isInputDisabled || param.isStress || param.isSelect}
+              />
+              <label htmlFor={`check-${param.name}`} className="font-medium" title={param.name}>
+                {param.label || param.name}
+                {param.label && <span className="text-gray-500 text-sm ml-2">({param.name})</span>}
+              </label>
+              {param.isSelect ? (
+                <Select
                   value={fixedValues[param.name]}
-                  onChange={e => setFixedValues(prev => ({ ...prev, [param.name]: e.target.value }))}
-                  disabled={isInputDisabled || !checkedParams[param.name]}
-                  className="col-span-1"
-                />
-                <div />
-              </>
-            ) : (
-              <>
-                <Input
-                  type="number"
-                  placeholder="下界"
-                  value={ranges[param.name]?.min}
-                  onChange={e => handleRangeChange(param.name, 'min', e.target.value)}
-                  disabled={isInputDisabled || !checkedParams[param.name]}
-                />
-                <Input
-                  type="number"
-                  placeholder="上界"
-                  value={ranges[param.name]?.max}
-                  onChange={e => handleRangeChange(param.name, 'max', e.target.value)}
-                  disabled={isInputDisabled || !checkedParams[param.name]}
-                />
-              </>
-            )}
-          </div>
-        ))}
+                  onValueChange={(value) => setFixedValues(prev => ({ ...prev, [param.name]: value }))}
+                  disabled={isInputDisabled}
+                >
+                  <SelectTrigger className="col-span-1">
+                    <SelectValue placeholder={`选择 ${param.label}`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {param.options.map(option => (
+                      <SelectItem key={option} value={String(option)}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : param.isStress ? (
+                <>
+                  <Input
+                    type="number"
+                    placeholder="最大值"
+                    value={fixedValues[param.name]}
+                    onChange={e => setFixedValues(prev => ({ ...prev, [param.name]: e.target.value }))}
+                    disabled={isInputDisabled || !checkedParams[param.name]}
+                    className="col-span-1"
+                  />
+                  <div />
+                </>
+              ) : (
+                <>
+                  <Input
+                    type="number"
+                    placeholder="下界"
+                    value={ranges[param.name]?.min}
+                    onChange={e => handleRangeChange(param.name, 'min', e.target.value)}
+                    disabled={isInputDisabled || !checkedParams[param.name]}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="上界"
+                    value={ranges[param.name]?.max}
+                    onChange={e => handleRangeChange(param.name, 'max', e.target.value)}
+                    disabled={isInputDisabled || !checkedParams[param.name]}
+                  />
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+        <Button onClick={handleSubmit} disabled={isTaskRunning || params.length === 0 || isInputDisabled} className="w-full mt-6">
+          提交范围并继续进行优化
+        </Button>
       </div>
-      <Button onClick={handleSubmit} disabled={isTaskRunning || params.length === 0 || isInputDisabled} className="w-full mt-6">
-        提交范围并继续进行优化
-      </Button>
     </div>
   );
 };
@@ -576,25 +620,6 @@ const DesignOptimizationPage = () => {
           minSize={10}
         >
           <div className="p-4 border-t bg-gray-50 h-full overflow-y-auto flex flex-col md:flex-row gap-4"> {/* 使用 flex 布局 */}
-            {displayedImages.length > 0 && (
-              <div className="flex-shrink-0 w-full md:w-1/2 lg:w-1/3 space-y-2"> {/* 图片区域 */}
-                {displayedImages.map((image, idx) => (
-                  <div key={idx} className="border rounded-lg p-2">
-                    <ProtectedImage 
-                      src={
-                        image.imageUrl.startsWith('http://') || image.imageUrl.startsWith('https://') 
-                          ? image.imageUrl 
-                          : `${(import.meta.env.VITE_API_URL || 'http://127.0.0.1:8080').replace('/api', '')}${image.imageUrl}`
-                      }
-                      alt={image.altText || 'Generated image'} 
-                      className="w-full h-auto rounded cursor-pointer"
-                      // onClick={() => handleDownload(image.fileName)} // 图片下载功能可以根据需求添加
-                    />
-                    <p className="text-sm text-center mt-1">{image.altText || image.fileName}</p>
-                  </div>
-                ))}
-              </div>
-            )}
             <div className="flex-grow"> {/* 参数表单或文件上传区域 */}
               {optimizableParams.length > 0 ? (
                 <ParameterForm 
@@ -602,6 +627,7 @@ const DesignOptimizationPage = () => {
                   onSubmit={handleRangesSubmit}
                   isStreaming={isStreaming}
                   isSecondRoundCompleted={isSecondRoundCompleted}
+                  displayedImages={displayedImages} // 传递图片数据
                 />
               ) : (
                 <FileUploadComponent
