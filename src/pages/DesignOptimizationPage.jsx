@@ -244,6 +244,7 @@ const ParameterForm = ({ params, onSubmit, isTaskRunning, isSecondRoundCompleted
         <div className="flex-shrink-0 w-full md:w-1/2 lg:w-1/3 space-y-2">
           {displayedImages
             .filter(image => image.altText === "screenshot") // 只渲染 altText 为 "screenshot" 的图片
+            .slice(-1) // 只取最新的一张图片
             .map((image, idx) => {
             console.log("Image altText:", image.altText); // 打印 altText
             return (
